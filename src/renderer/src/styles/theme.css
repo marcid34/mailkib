@@ -66,6 +66,11 @@ body {
   font-family: var(--font);
   font-size: 13.5px;
   line-height: 1.5;
+  /* Noto Sans — what `system-ui` resolves to on most Linux boxes — defaults to
+     tabular figures, so a "1" gets a "0"-sized slot and digits read as gappy.
+     Ask for proportional figures; the deliberate tabular-nums rules on
+     .nav__count / .row__time still override this where columns must line up. */
+  font-variant-numeric: proportional-nums;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
