@@ -20,7 +20,14 @@ import type {
 } from '../../../shared/types'
 import { api, call } from '../lib/api'
 import { displayName, formatRecipients, fullTime } from '../lib/format'
-import { detokenize, highlightTerms, suggestions as buildSuggestions, tokenize } from '../lib/search'
+import {
+  cycleScope,
+  detokenize,
+  highlightTerms,
+  suggestions as buildSuggestions,
+  tokenize,
+  type SearchScope
+} from '../lib/search'
 import { useToast } from '../lib/toast'
 import { isLabelFolder, providerIdOf } from '../../../shared/folders'
 import { AddressBook } from './AddressBook'
@@ -62,6 +69,9 @@ interface Props {
 
 const REFRESH_MS = 120_000
 
+/** Rows kept when several accounts are merged into one result list. */
+const MERGED_LIMIT = 200
+
 function escapeText(s: string): string {
   return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)
 }
@@ -80,10 +90,10 @@ export function MailView({
   const [folder, setFolder] = useState<FolderId>('inbox')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  // Gmail's search box always searches All Mail regardless of where you are
-  // standing, and that is the expectation people bring. Scoping to the current
-  // folder is available, but opt-in.
-  const [searchScope, setSearchScope] = useState<'all' | 'folder'>('all')
+  // `/` always starts narrow — the folder you are looking at. Tab widens: this
+  // folder → the whole mailbox → every mailbox. Widening is one keystroke, so
+  // starting narrow costs nothing and keeps the first result set legible.
+  const [searchScope, setSearchScope] = useState<SearchScope>('folder')
 
   const [messages, setMessages] = useState<MessageSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,6 +109,8 @@ export function MailView({
   const [threadLoading, setThreadLoading] = useState(false)
 
   const [compose, setCompose] = useState<ComposeInit | null>(null)
+  // A reply to a row found in another mailbox must go out from that mailbox.
+  const [composeAccountId, setComposeAccountId] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -117,8 +129,18 @@ export function MailView({
     [accounts, accountId]
   )
 
-  /** What the provider is actually asked for: a global search leaves the folder. */
-  const queryFolder: FolderId = search && searchScope === 'all' ? 'all' : folder
+  /** What the provider is actually asked for: a widened search leaves the folder. */
+  const queryFolder: FolderId = search && searchScope !== 'folder' ? 'all' : folder
+
+  /** True while a search is being answered by every account at once. */
+  const everywhere = Boolean(search) && searchScope === 'everywhere'
+
+  /** The account a row belongs to, which is not always the selected one. */
+  const accountFor = useCallback(
+    (summary?: MessageSummary | MessageFull): MailAccount | undefined =>
+      accounts.find((a) => a.id === summary?.accountId) ?? account,
+    [accounts, account]
+  )
 
   useEffect(() => {
     if (!accounts.some((a) => a.id === accountId)) setAccountId(accounts[0]?.id ?? '')
@@ -129,32 +151,47 @@ export function MailView({
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  useEffect(() => {
-    if (!searchInput) setSearchScope('all')
-  }, [searchInput])
-
   /* ----------------------------- data loading ---------------------------- */
 
   const load = useCallback(
     async (silent = false) => {
       if (!account) return
       const id = ++requestId.current
+      // One account, unless the search has been widened to every mailbox.
+      const targets = everywhere ? accounts : [account]
+
+      // Rows already carry the account that produced them, so merging is just a
+      // matter of putting the newest first.
+      const merge = (lists: MessageSummary[][]): MessageSummary[] =>
+        lists.length === 1
+          ? lists[0]
+          : lists
+              .flat()
+              .sort((a, b) => b.date - a.date)
+              .slice(0, MERGED_LIMIT)
 
       // Paint whatever we already hold, then let the network correct it. This is
       // what makes switching folders and typing a search feel immediate.
       if (!silent) {
         setLoading(true)
         try {
-          const cached = await call(
-            api.mail.cached({
-              accountId: account.id,
-              folder: queryFolder,
-              search: search || undefined
-            })
+          const lists = await Promise.all(
+            targets.map((a) =>
+              call(
+                api.mail.cached({
+                  accountId: a.id,
+                  folder: queryFolder,
+                  search: search || undefined
+                })
+              )
+                .then((result) => result.messages)
+                .catch(() => [])
+            )
           )
           if (requestId.current !== id) return
-          if (cached.messages.length > 0) {
-            setMessages(cached.messages)
+          const cached = merge(lists)
+          if (cached.length > 0) {
+            setMessages(cached)
             setCursor(0)
           }
         } catch {
@@ -162,19 +199,34 @@ export function MailView({
         }
       }
 
+      const unreachable: string[] = []
       try {
-        const result = await call(
-          api.mail.list({
-            accountId: account.id,
-            folder: queryFolder,
-            search: search || undefined
-          })
+        const results = await Promise.all(
+          targets.map((a) =>
+            call(
+              api.mail.list({
+                accountId: a.id,
+                folder: queryFolder,
+                search: search || undefined
+              })
+            ).catch((error) => {
+              // One sick account should not blank out an all-mailbox search, but
+              // the gap has to be visible rather than silently missing.
+              if (targets.length === 1) throw error
+              unreachable.push(a.email)
+              return { messages: [] as MessageSummary[], nextPageToken: undefined }
+            })
+          )
         )
         if (requestId.current !== id) return
-        setMessages(result.messages)
-        setPageToken(result.nextPageToken)
+        const merged = merge(results.map((r) => r.messages))
+        setMessages(merged)
+        // Paging a merged list would need a page token per account; an
+        // all-mailbox search shows the freshest matches and stops there.
+        setPageToken(everywhere ? undefined : results[0]?.nextPageToken)
+        if (unreachable.length > 0) notify(`Could not search ${unreachable.join(', ')}`, 'error')
         if (!silent) {
-          setCursor((c) => Math.min(c, Math.max(0, result.messages.length - 1)))
+          setCursor((c) => Math.min(c, Math.max(0, merged.length - 1)))
           setOpenThreadId(null)
           setThread(null)
         }
@@ -184,7 +236,7 @@ export function MailView({
         if (requestId.current === id) setLoading(false)
       }
     },
-    [account, queryFolder, search, fail]
+    [account, accounts, everywhere, queryFolder, search, fail, notify]
   )
 
   const loadCounts = useCallback(async () => {
@@ -259,10 +311,15 @@ export function MailView({
   /* ------------------------------- actions ------------------------------- */
 
   const act = useCallback(
-    async (refs: MessageRef[], action: Parameters<typeof api.mail.act>[2]) => {
-      if (!account || refs.length === 0) return
+    async (
+      refs: MessageRef[],
+      action: Parameters<typeof api.mail.act>[2],
+      onAccountId?: string
+    ) => {
+      const owner = onAccountId ?? account?.id
+      if (!owner || refs.length === 0) return
       try {
-        await call(api.mail.act(account.id, refs, action))
+        await call(api.mail.act(owner, refs, action))
       } catch (error) {
         fail(error)
         void load(true)
@@ -274,13 +331,14 @@ export function MailView({
   const openAt = useCallback(
     async (index: number) => {
       const summary = messages[index]
-      if (!account || !summary) return
+      const owner = accountFor(summary)
+      if (!owner || !summary) return
       setCursor(index)
       setOpenThreadId(summary.threadId)
       setThread(null)
       setThreadLoading(true)
       try {
-        const cached = await call(api.mail.cachedThread(account.id, summary.threadId))
+        const cached = await call(api.mail.cachedThread(owner.id, summary.threadId))
         if (cached) {
           setThread(cached)
           setThreadLoading(false)
@@ -289,14 +347,17 @@ export function MailView({
         /* no cached copy; the spinner stays up */
       }
       try {
-        const view = await call(api.mail.thread(account.id, summary.threadId))
+        const view = await call(api.mail.thread(owner.id, summary.threadId))
         setThread(view)
         if (summary.unread) {
           setMessages((list) =>
             list.map((m) => (m.threadId === summary.threadId ? { ...m, unread: false } : m))
           )
-          setCounts((c) => ({ ...c, inbox: Math.max(0, (c.inbox ?? 1) - 1) }))
-          void act([{ id: summary.id, threadId: summary.threadId }], 'read')
+          // The sidebar counts belong to the selected account only.
+          if (owner.id === account?.id) {
+            setCounts((c) => ({ ...c, inbox: Math.max(0, (c.inbox ?? 1) - 1) }))
+          }
+          void act([{ id: summary.id, threadId: summary.threadId }], 'read', owner.id)
         }
       } catch (error) {
         fail(error)
@@ -305,7 +366,7 @@ export function MailView({
         setThreadLoading(false)
       }
     },
-    [messages, account, act, fail]
+    [messages, account, accountFor, act, fail]
   )
 
   const folderName = useMemo(
@@ -338,13 +399,13 @@ export function MailView({
       // Archiving only removes the conversation from the inbox. In a label or
       // search view it legitimately stays put, so don't drop the row there.
       if (folder === 'inbox') removeRow(target.threadId)
-      void act([ref], 'archive').then(() => {
+      void act([ref], 'archive', target.accountId).then(() => {
         if (folder !== 'inbox') void load(true)
       })
       notify('Archived', 'info', {
         label: 'Undo',
         run: () => {
-          void act([ref], 'inbox').then(() => load(true))
+          void act([ref], 'inbox', target.accountId).then(() => load(true))
         }
       })
     },
@@ -356,7 +417,7 @@ export function MailView({
       const target = summary ?? currentSummary
       if (!target) return
       removeRow(target.threadId)
-      void act([{ id: target.id, threadId: target.threadId }], 'trash')
+      void act([{ id: target.id, threadId: target.threadId }], 'trash', target.accountId)
       notify('Moved to trash')
     },
     [currentSummary, removeRow, act, notify]
@@ -370,7 +431,7 @@ export function MailView({
       setMessages((list) =>
         list.map((m) => (m.threadId === target.threadId ? { ...m, starred: next } : m))
       )
-      void act([{ id: target.id, threadId: target.threadId }], next ? 'star' : 'unstar')
+      void act([{ id: target.id, threadId: target.threadId }], next ? 'star' : 'unstar', target.accountId)
     },
     [currentSummary, act]
   )
@@ -382,7 +443,7 @@ export function MailView({
       setMessages((list) =>
         list.map((m) => (m.threadId === target.threadId ? { ...m, unread: true } : m))
       )
-      void act([{ id: target.id, threadId: target.threadId }], 'unread')
+      void act([{ id: target.id, threadId: target.threadId }], 'unread', target.accountId)
       setOpenThreadId(null)
       setThread(null)
     },
@@ -393,7 +454,7 @@ export function MailView({
     const target = currentSummary
     if (!target) return
     removeRow(target.threadId)
-    void act([{ id: target.id, threadId: target.threadId }], 'inbox')
+    void act([{ id: target.id, threadId: target.threadId }], 'inbox', target.accountId)
     notify('Moved to inbox')
   }, [currentSummary, removeRow, act, notify])
 
@@ -414,6 +475,17 @@ export function MailView({
     [tokens]
   )
 
+  /** `/` always lands in the narrowest scope; Tab from there widens it. */
+  const focusSearch = useCallback(() => {
+    setSearchScope('folder')
+    searchRef.current?.focus()
+    searchRef.current?.select()
+  }, [])
+
+  const widenScope = useCallback((step: number) => {
+    setSearchScope((scope) => cycleScope(scope, step))
+  }, [])
+
   /* ------------------------- labels: move and manage ---------------------- */
 
   const labelOp = useCallback(
@@ -422,7 +494,8 @@ export function MailView({
       label: MailFolder,
       mode: 'move' | 'apply' | 'remove'
     ): Promise<void> => {
-      if (!account) return
+      // Labels are per-account, so this only ever applies to the selected one.
+      if (!account || target.accountId !== account.id) return
       const ref = { id: target.id, threadId: target.threadId }
       if (mode === 'move' && folder !== label.id) removeRow(target.threadId)
       try {
@@ -535,7 +608,7 @@ export function MailView({
 
   const buildReply = useCallback(
     (mode: ReplyMode, message: MessageFull): ComposeInit => {
-      const self = account?.email.toLowerCase() ?? ''
+      const self = (accountFor(message)?.email ?? '').toLowerCase()
       const bodyHtml = message.html ?? `<pre>${escapeText(message.text ?? '')}</pre>`
       const quotedHtml =
         `<div style="color:#848cad;font-size:12px">On ${fullTime(message.date)}, ` +
@@ -572,7 +645,7 @@ export function MailView({
         replySourceId: message.id
       }
     },
-    [account]
+    [accountFor]
   )
 
   const startReply = useCallback(
@@ -580,9 +653,11 @@ export function MailView({
       let source = message
       if (!source) {
         if (thread) source = thread.messages[thread.messages.length - 1]
-        else if (currentSummary && account) {
+        else if (currentSummary) {
+          const owner = accountFor(currentSummary)
+          if (!owner) return
           try {
-            const view = await call(api.mail.thread(account.id, currentSummary.threadId))
+            const view = await call(api.mail.thread(owner.id, currentSummary.threadId))
             source = view.messages[view.messages.length - 1]
           } catch (error) {
             fail(error)
@@ -591,9 +666,11 @@ export function MailView({
         }
       }
       if (!source) return
+      // Reply from the mailbox that holds the message, not the selected one.
+      setComposeAccountId(source.accountId)
       setCompose(buildReply(mode, source))
     },
-    [thread, currentSummary, account, buildReply, fail]
+    [thread, currentSummary, accountFor, buildReply, fail]
   )
 
   /* ----------------------------- context menus ---------------------------- */
@@ -615,6 +692,10 @@ export function MailView({
   const openRowMenu = useCallback(
     (event: MouseEvent, target: MessageSummary) => {
       const isGmail = account?.provider === 'gmail'
+      // An all-mailbox search can surface rows the sidebar's labels know nothing
+      // about; those get a jump to their own account instead of filing options.
+      const owner = accountFor(target)
+      const foreign = Boolean(owner) && owner!.id !== account?.id
       const items: MenuItem[] = [
         { label: 'Open', hint: '↵', run: () => void openAt(messages.indexOf(target)) },
         {},
@@ -640,19 +721,30 @@ export function MailView({
               setMessages((list) =>
                 list.map((m) => (m.threadId === target.threadId ? { ...m, unread: false } : m))
               )
-              void act([{ id: target.id, threadId: target.threadId }], 'read')
+              void act([{ id: target.id, threadId: target.threadId }], 'read', target.accountId)
             } else markUnread(target)
           }
         },
-        {},
-        { label: 'Move to', icon: <IconMove size={13} />, submenu: labelSubmenu(target, 'move') }
+        {}
       ]
-      if (isGmail) {
+      if (foreign) {
         items.push({
-          label: 'Apply label',
-          icon: <IconTag size={13} />,
-          submenu: labelSubmenu(target, 'apply')
+          label: `Switch to ${owner!.email}`,
+          run: () => setAccountId(owner!.id)
         })
+      } else {
+        items.push({
+          label: 'Move to',
+          icon: <IconMove size={13} />,
+          submenu: labelSubmenu(target, 'move')
+        })
+        if (isGmail) {
+          items.push({
+            label: 'Apply label',
+            icon: <IconTag size={13} />,
+            submenu: labelSubmenu(target, 'apply')
+          })
+        }
       }
       items.push(
         {},
@@ -664,7 +756,20 @@ export function MailView({
       )
       menu.open(event, items)
     },
-    [account, messages, openAt, startReply, archive, trash, toggleStar, markUnread, act, labelSubmenu, menu]
+    [
+      account,
+      accountFor,
+      messages,
+      openAt,
+      startReply,
+      archive,
+      trash,
+      toggleStar,
+      markUnread,
+      act,
+      labelSubmenu,
+      menu
+    ]
   )
 
   const openNavMenu = useCallback(
@@ -732,7 +837,12 @@ export function MailView({
 
       if (isLabelFolder(destination)) {
         const label = labels.find((l) => l.id === destination)
-        if (label) void labelOp(target, label, 'move')
+        if (!label) return
+        if (target.accountId !== account.id) {
+          notify('That message lives in another mailbox. Switch to it to file it.')
+          return
+        }
+        void labelOp(target, label, 'move')
         return
       }
       if (destination === 'archive') return archive(target)
@@ -743,7 +853,7 @@ export function MailView({
       }
       if (destination === 'inbox') {
         removeRow(target.threadId)
-        void act([ref], 'inbox')
+        void act([ref], 'inbox', target.accountId)
         notify('Moved to inbox')
       }
     },
@@ -879,8 +989,7 @@ export function MailView({
           return
         case '/':
           event.preventDefault()
-          searchRef.current?.focus()
-          searchRef.current?.select()
+          focusSearch()
           return
         case '?':
           event.preventDefault()
@@ -903,6 +1012,7 @@ export function MailView({
     markUnread,
     moveToInbox,
     startReply,
+    focusSearch,
     load,
     loadCounts,
     loadLabels
@@ -914,7 +1024,16 @@ export function MailView({
     const list: Command[] = [
       { id: 'compose', group: 'Actions', label: 'Compose new message', keys: ['c'], run: () => setCompose({}) },
       { id: 'refresh', group: 'Actions', label: 'Refresh', keys: ['ctrl', 'r'], run: () => void load() },
-      { id: 'search', group: 'Actions', label: 'Search', keys: ['/'], run: () => searchRef.current?.focus() }
+      { id: 'search', group: 'Actions', label: 'Search', keys: ['/'], run: focusSearch },
+      {
+        id: 'search-everywhere',
+        group: 'Actions',
+        label: 'Search all mailboxes',
+        run: () => {
+          searchRef.current?.focus()
+          setSearchScope('everywhere')
+        }
+      }
     ]
     if (currentSummary) {
       list.push(
@@ -968,6 +1087,7 @@ export function MailView({
     labels,
     accountId,
     promptNewLabel,
+    focusSearch,
     load,
     archive,
     trash,
@@ -1003,15 +1123,19 @@ export function MailView({
 
         <MessageList
           messages={messages}
+          accounts={accounts}
+          showAccounts={everywhere}
           loading={loading}
           searching={searching}
           folder={folder}
           folderName={folderName}
+          accountEmail={account.email}
           search={searchInput}
           tokens={tokens}
           terms={terms}
           searchScope={searchScope}
           onSearchScope={setSearchScope}
+          onCycleScope={widenScope}
           suggestions={searchSuggestions}
           cursor={cursor}
           openThreadId={openThreadId}
@@ -1028,7 +1152,7 @@ export function MailView({
         />
 
         <Reader
-          account={account}
+          account={accountFor(currentSummary) ?? account}
           thread={openThreadId ? thread : null}
           loading={threadLoading}
           starred={Boolean(currentSummary?.starred)}
@@ -1071,11 +1195,15 @@ export function MailView({
 
       {compose && (
         <Compose
-          account={account}
+          account={accounts.find((a) => a.id === composeAccountId) ?? account}
           init={compose}
-          onClose={() => setCompose(null)}
+          onClose={() => {
+            setCompose(null)
+            setComposeAccountId(null)
+          }}
           onSent={() => {
             setCompose(null)
+            setComposeAccountId(null)
             void load(true)
           }}
         />

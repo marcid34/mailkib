@@ -252,6 +252,112 @@ export function Settings({
           </div>
 
           <div className="settings__group">
+            <h4>Search</h4>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Scope</div>
+                <div className="sub">
+                  <span className="kbd">/</span> opens the search box in the folder you are
+                  standing in. <span className="kbd">tab</span> widens it a step at a time, and{' '}
+                  <span className="kbd">shift</span>
+                  <span className="kbd">tab</span> narrows it back. Your typed query is kept as the
+                  scope changes.
+                </div>
+                <ul className="search-help">
+                  <li>
+                    <span className="search-help__key">In this folder</span>
+                    <span>Only the folder or label open in the sidebar.</span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">This mailbox</span>
+                    <span>
+                      Every folder of the selected account, archive included. On Gmail, spam and
+                      trash stay out unless you ask for them.
+                    </span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">All mailboxes</span>
+                    <span>
+                      Every folder of every account you have added. Results are merged newest
+                      first and each row is tagged with the mailbox it came from.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Operators</div>
+                <div className="sub">
+                  Terms are combined with AND, and quotes hold a phrase together:{' '}
+                  <code>&quot;quarterly review&quot;</code>. A term with an operator is recognised
+                  as you type and shown as a chip you can click to remove.
+                </div>
+                <ul className="search-help">
+                  <li>
+                    <span className="search-help__key">
+                      <code>from:</code> <code>to:</code> <code>cc:</code>
+                    </span>
+                    <span>Match a person, by name or address.</span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">
+                      <code>subject:</code>
+                    </span>
+                    <span>Match the subject line only.</span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">
+                      <code>label:</code> <code>in:</code>
+                    </span>
+                    <span>Restrict to one label or folder by name.</span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">
+                      <code>has:attachment</code> <code>filename:</code>
+                    </span>
+                    <span>Messages carrying files, or a particular one.</span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">
+                      <code>is:unread</code> <code>is:starred</code>
+                    </span>
+                    <span>Match on state rather than content.</span>
+                  </li>
+                  <li>
+                    <span className="search-help__key">
+                      <code>before:</code> <code>after:</code> <code>older_than:</code>
+                    </span>
+                    <span>
+                      Dates as <code>2026/01/31</code>, or spans as <code>older_than:7d</code>.
+                    </span>
+                  </li>
+                </ul>
+                <div className="sub">
+                  The query is handed to the provider as you typed it, so Gmail accounts understand
+                  Gmail&apos;s full search language. Outlook accounts go to Microsoft Graph, which
+                  reads <code>from:</code>, <code>to:</code>, <code>subject:</code> and the like —
+                  Gmail-only spellings such as <code>older_than:</code> may not match there.
+                </div>
+              </div>
+            </div>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">How results arrive</div>
+                <div className="sub">
+                  Matches from the local cache paint immediately, then the provider&apos;s answer
+                  replaces them — which is why a search can gain rows a moment after you stop
+                  typing. An all-mailbox search shows the freshest matches per account rather than
+                  paging; narrow it with an operator to dig further back.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="settings__group">
             <h4>Address book</h4>
             <div className="settings__row">
               <IconContacts size={17} />

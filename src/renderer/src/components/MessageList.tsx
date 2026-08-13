@@ -1,20 +1,25 @@
-import { useEffect, useRef, useState, type DragEvent, type JSX, type MouseEvent } from 'react'
-import type { FolderId, MessageSummary } from '../../../shared/types'
-import { displayName, relativeTime } from '../lib/format'
-import { highlight, type SearchToken, type Suggestion } from '../lib/search'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type JSX, type MouseEvent } from 'react'
+import type { FolderId, MailAccount, MessageSummary } from '../../../shared/types'
+import { colorFor, displayName, relativeTime } from '../lib/format'
+import { highlight, type SearchScope, type SearchToken, type Suggestion } from '../lib/search'
 import { IconPaperclip, IconSearch, IconStar, IconX } from './Icons'
 
 interface Props {
   messages: MessageSummary[]
+  accounts: MailAccount[]
+  /** Label each row with its mailbox — only useful once they can be mixed. */
+  showAccounts: boolean
   loading: boolean
   searching: boolean
   folder: FolderId
   folderName: string
+  accountEmail: string
   search: string
   tokens: SearchToken[]
   terms: string[]
-  searchScope: 'all' | 'folder'
-  onSearchScope: (scope: 'all' | 'folder') => void
+  searchScope: SearchScope
+  onSearchScope: (scope: SearchScope) => void
+  onCycleScope: (step: number) => void
   suggestions: Suggestion[]
   cursor: number
   openThreadId: string | null
@@ -50,15 +55,19 @@ function Highlighted({ text, terms }: { text: string; terms: string[] }): JSX.El
 
 export function MessageList({
   messages,
+  accounts,
+  showAccounts,
   loading,
   searching,
   folder,
   folderName,
+  accountEmail,
   search,
   tokens,
   terms,
   searchScope,
   onSearchScope,
+  onCycleScope,
   suggestions,
   cursor,
   openThreadId,
@@ -78,6 +87,25 @@ export function MessageList({
   const [suggestionCursor, setSuggestionCursor] = useState(0)
 
   const showSuggestions = focused && suggestions.length > 0
+  const showScope = focused || Boolean(search)
+
+  const accountById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a])),
+    [accounts]
+  )
+
+  const scopeOptions: { scope: SearchScope; label: string; title: string }[] = [
+    { scope: 'folder', label: `In ${folderName}`, title: `Search only ${folderName}` },
+    { scope: 'mailbox', label: 'This mailbox', title: `Search every folder in ${accountEmail}` },
+    { scope: 'everywhere', label: 'All mailboxes', title: 'Search every folder in every account' }
+  ]
+
+  const placeholder =
+    searchScope === 'everywhere'
+      ? 'Search all mailboxes…'
+      : searchScope === 'mailbox'
+        ? `Search ${accountEmail}…`
+        : `Search ${folderName.toLowerCase()}…`
 
   useEffect(() => setSuggestionCursor(0), [suggestions.length, search])
 
@@ -105,22 +133,22 @@ export function MessageList({
           </span>
         </div>
 
-        {search && (
+        {showScope && (
           <div className="scope">
-            <button
-              className={`scope__btn${searchScope === 'all' ? ' is-on' : ''}`}
-              onClick={() => onSearchScope('all')}
-              title="Search every message, including archived"
-            >
-              Everywhere
-            </button>
-            <button
-              className={`scope__btn${searchScope === 'folder' ? ' is-on' : ''}`}
-              onClick={() => onSearchScope('folder')}
-              title={`Search only ${folderName}`}
-            >
-              In {folderName}
-            </button>
+            {scopeOptions.map((option) => (
+              <button
+                key={option.scope}
+                className={`scope__btn${searchScope === option.scope ? ' is-on' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onSearchScope(option.scope)}
+                title={option.title}
+              >
+                {option.label}
+              </button>
+            ))}
+            <span className="scope__hint" title="Tab widens the search">
+              <span className="kbd">tab</span>
+            </span>
           </div>
         )}
 
@@ -130,12 +158,20 @@ export function MessageList({
             <input
               ref={searchRef}
               value={search}
-              placeholder={`Search ${folderName.toLowerCase()}…`}
+              placeholder={placeholder}
               spellCheck={false}
               onFocus={() => setFocused(true)}
               onBlur={() => window.setTimeout(() => setFocused(false), 120)}
               onChange={(e) => onSearch(e.target.value)}
               onKeyDown={(e) => {
+                // Tab is the scope dial: this folder → this mailbox → all
+                // mailboxes, and shift-Tab walks back. It never moves focus out
+                // of the box, so the query survives the widening.
+                if (e.key === 'Tab') {
+                  e.preventDefault()
+                  onCycleScope(e.shiftKey ? -1 : 1)
+                  return
+                }
                 if (e.key === 'Escape') {
                   e.preventDefault()
                   if (showSuggestions) setFocused(false)
@@ -258,6 +294,19 @@ export function MessageList({
                 </span>
                 {(message.threadCount ?? 1) > 1 && (
                   <span className="row__count">{message.threadCount}</span>
+                )}
+                {showAccounts && accountById.has(message.accountId) && (
+                  <span className="row__acct" title={accountById.get(message.accountId)!.email}>
+                    <span
+                      className="row__acct-dot"
+                      style={{
+                        background:
+                          accountById.get(message.accountId)!.color ||
+                          colorFor(accountById.get(message.accountId)!.email)
+                      }}
+                    />
+                    {accountById.get(message.accountId)!.email.split('@')[0]}
+                  </span>
                 )}
                 {(message.starred || message.hasAttachments) && (
                   <span className="row__flags">

@@ -9,7 +9,8 @@ const GROUPS: { title: string; rows: [string, string[]][] }[] = [
       ['Previous conversation', ['k']],
       ['Open conversation', ['↵']],
       ['Back to list', ['u']],
-      ['Search', ['/']],
+      ['Search this folder', ['/']],
+      ['Widen search scope', ['tab']],
       ['Command palette', ['ctrl', 'k']],
       ['Refresh', ['ctrl', 'r']]
     ]

@@ -1,5 +1,20 @@
 import type { MailFolder } from '../../../shared/types'
 
+/**
+ * How wide the search box casts. Tab walks these in order, starting narrow:
+ * the folder you are standing in, then every folder of that account, then
+ * every folder of every account.
+ */
+export type SearchScope = 'folder' | 'mailbox' | 'everywhere'
+
+export const SEARCH_SCOPES: SearchScope[] = ['folder', 'mailbox', 'everywhere']
+
+/** Step through the scopes, wrapping at both ends. */
+export function cycleScope(scope: SearchScope, step = 1): SearchScope {
+  const at = SEARCH_SCOPES.indexOf(scope)
+  return SEARCH_SCOPES[(at + step + SEARCH_SCOPES.length) % SEARCH_SCOPES.length]
+}
+
 export interface SearchToken {
   /** The raw text as it appears in the query, e.g. `from:mira` or `"status update"`. */
   raw: string
