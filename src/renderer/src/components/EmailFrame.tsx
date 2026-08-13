@@ -1,7 +1,9 @@
 import DOMPurify from 'dompurify'
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { api } from '../lib/api'
 import { useTheme } from '../lib/settings-context'
+import { useToast } from '../lib/toast'
+import { ContextMenu, useContextMenu, type MenuItem } from './ContextMenu'
 
 import type { ThemeColors } from '../lib/themes'
 
@@ -63,6 +65,14 @@ const LIGHT_STYLE = `
 `
 
 export type Surface = 'auto' | 'light' | 'dark'
+
+/** What sits under the pointer when the message body is right-clicked. */
+interface FrameTarget {
+  href: string
+  imageSrc: string
+  selection: string
+  bodyText: string
+}
 
 export function hasRemoteImages(html: string): boolean {
   return /<img[^>]+src=["']?https?:/i.test(html) || /background(-image)?\s*:\s*url\(['"]?https?:/i.test(html)
@@ -139,10 +149,71 @@ export function EmailFrame({
   const ref = useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = useState(48)
   const { theme } = useTheme()
+  const { notify } = useToast()
+  const menu = useContextMenu()
+  const { open: openMenu, close: closeMenu } = menu
   const light = resolveSurface(surface, html) === 'light'
   const doc = useMemo(
     () => buildDocument(html, allowRemote, trusted, light, theme.colors),
     [html, allowRemote, trusted, light, theme]
+  )
+
+  const copy = useCallback(
+    (text: string, what: string): void => {
+      void navigator.clipboard.writeText(text).then(
+        () => notify(`${what} copied`, 'ok'),
+        () => notify(`Could not copy the ${what.toLowerCase()}`, 'error')
+      )
+    },
+    [notify]
+  )
+
+  /**
+   * Electron ships no default context menu, so a right-click inside a message
+   * did nothing at all. Build one from whatever is under the pointer, and always
+   * leave at least one usable entry so the click is never a dead end.
+   */
+  const itemsFor = useCallback(
+    (target: FrameTarget): MenuItem[] => {
+      const items: MenuItem[] = []
+      const mailto = /^mailto:/i.test(target.href)
+      const web = /^https?:/i.test(target.href)
+
+      if (mailto) {
+        const address = target.href.replace(/^mailto:/i, '').split('?')[0]
+        items.push({ label: 'Copy email address', run: () => copy(address, 'Address') })
+      } else if (web) {
+        items.push(
+          { label: 'Open link', run: () => void api.app.openExternal(target.href) },
+          { label: 'Copy link address', run: () => copy(target.href, 'Link') }
+        )
+      }
+
+      if (/^https?:/i.test(target.imageSrc)) {
+        if (items.length > 0) items.push({})
+        items.push(
+          { label: 'Open image', run: () => void api.app.openExternal(target.imageSrc) },
+          { label: 'Copy image address', run: () => copy(target.imageSrc, 'Image address') }
+        )
+      }
+
+      if (target.selection) {
+        if (items.length > 0) items.push({})
+        items.push({
+          label: 'Copy selection',
+          hint: 'ctrl C',
+          run: () => copy(target.selection, 'Selection')
+        })
+      }
+
+      if (target.bodyText) {
+        if (items.length > 0) items.push({})
+        items.push({ label: 'Copy message text', run: () => copy(target.bodyText, 'Message text') })
+      }
+
+      return items
+    },
+    [copy]
   )
 
   useEffect(() => {
@@ -209,11 +280,45 @@ export function EmailFrame({
       if (/^(https?|mailto):/i.test(href)) void api.app.openExternal(href)
     }
 
+    const onContext = (event: Event): void => {
+      const mouse = event as globalThis.MouseEvent
+      const d = iframe.contentDocument
+      if (!d) return
+      mouse.preventDefault()
+      const element = mouse.target as Element | null
+      const anchor = element?.closest?.('a[href]') as HTMLAnchorElement | null
+      const image = element?.closest?.('img') as HTMLImageElement | null
+      const items = itemsFor({
+        // `href` resolves relative URLs against the frame; the attribute is what
+        // the sender actually wrote, which is what a reader wants to copy.
+        href: anchor?.getAttribute('href')?.trim() ?? '',
+        imageSrc: image?.getAttribute('src')?.trim() ?? '',
+        selection: d.getSelection()?.toString().trim() ?? '',
+        bodyText: d.body?.innerText?.trim() ?? ''
+      })
+      // A scaled-down newsletter reports pointer coordinates in the frame's own
+      // units. Rather than assume how `zoom` is reflected there, measure it: the
+      // root element spans exactly the frame's width, so their ratio is the
+      // correction, and it collapses to 1 when nothing was scaled.
+      const box = iframe.getBoundingClientRect()
+      const root = d.documentElement.getBoundingClientRect().width
+      const scale = root > 0 ? iframe.clientWidth / root : 1
+      openMenu(
+        {
+          clientX: box.left + mouse.clientX * scale,
+          clientY: box.top + mouse.clientY * scale,
+          preventDefault: () => {}
+        },
+        items
+      )
+    }
+
     const onLoad = (): void => {
       const d = iframe.contentDocument
       if (!d) return
       refit()
       d.addEventListener('click', onClick, true)
+      d.addEventListener('contextmenu', onContext, true)
       observer = new ResizeObserver(measure)
       if (d.body) observer.observe(d.body)
       // Images finish decoding after load and change both width and height.
@@ -235,10 +340,12 @@ export function EmailFrame({
       window.removeEventListener('resize', onWindowResize)
       iframe.removeEventListener('load', onLoad)
       iframe.contentDocument?.removeEventListener('click', onClick, true)
+      iframe.contentDocument?.removeEventListener('contextmenu', onContext, true)
       observer?.disconnect()
       timers.forEach(clearTimeout)
+      closeMenu()
     }
-  }, [doc])
+  }, [doc, itemsFor, openMenu, closeMenu])
 
   return (
     <div className={light ? 'msg__paper' : undefined}>
@@ -250,6 +357,7 @@ export function EmailFrame({
         style={{ height }}
         title="Message content"
       />
+      <ContextMenu state={menu.state} onClose={menu.close} />
     </div>
   )
 }
