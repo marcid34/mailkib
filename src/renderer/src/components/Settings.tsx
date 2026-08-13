@@ -2,7 +2,7 @@ import { useEffect, useState, type JSX } from 'react'
 import type { AppInfo, AppUser, CacheStats, MailAccount } from '../../../shared/types'
 import { api, call } from '../lib/api'
 import { colorFor, initials } from '../lib/format'
-import { useTheme } from '../lib/theme-context'
+import { useSettings, useTheme } from '../lib/settings-context'
 import { THEMES } from '../lib/themes'
 import { useToast } from '../lib/toast'
 import { IconKey, IconPlus, IconX } from './Icons'
@@ -31,6 +31,7 @@ export function Settings({
   const [newPassword, setNewPassword] = useState('')
   const [desktop, setDesktop] = useState(info?.desktop)
   const { theme, setTheme } = useTheme()
+  const { settings, update } = useSettings()
   const [stats, setStats] = useState<CacheStats | null>(null)
   const primary = accounts[0]
 
@@ -187,6 +188,64 @@ export function Settings({
                   </span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="settings__group">
+            <h4>Reading</h4>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Remote images</div>
+                <div className="sub">
+                  Images hosted by the sender. Loading them tells the sender you opened the
+                  message — that is how tracking pixels work.
+                </div>
+              </div>
+              <div className="segmented">
+                {(
+                  [
+                    ['always', 'Always'],
+                    ['ask', 'Ask'],
+                    ['never', 'Never']
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={`segmented__btn${settings.remoteImages === value ? ' is-on' : ''}`}
+                    onClick={() => update({ remoteImages: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Message background</div>
+                <div className="sub">
+                  HTML email is written for a white page. <strong>Auto</strong> gives designed
+                  messages a light sheet and leaves plain ones on your theme.
+                </div>
+              </div>
+              <div className="segmented">
+                {(
+                  [
+                    ['auto', 'Auto'],
+                    ['light', 'Light'],
+                    ['dark', 'Dark']
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={`segmented__btn${settings.messageSurface === value ? ' is-on' : ''}`}
+                    onClick={() => update({ messageSurface: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

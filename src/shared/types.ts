@@ -156,6 +156,13 @@ export type Result<T> = Ok<T> | Err
 export interface AppSettings {
   themeId: string
   cacheEnabled: boolean
+  /** When to fetch images hosted on the sender's servers. */
+  remoteImages: 'always' | 'ask' | 'never'
+  /**
+   * HTML email is authored for a white page. `auto` renders designed messages on
+   * a light sheet and leaves plain ones on the app background.
+   */
+  messageSurface: 'auto' | 'light' | 'dark'
 }
 
 export interface Contact {

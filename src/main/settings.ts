@@ -5,7 +5,9 @@ const FILE = 'settings.json'
 
 const DEFAULTS: AppSettings = {
   themeId: 'tokyo-night-storm',
-  cacheEnabled: true
+  cacheEnabled: true,
+  remoteImages: 'always',
+  messageSurface: 'auto'
 }
 
 export function getSettings(): AppSettings {

@@ -239,7 +239,7 @@ export function Compose({ account, init, onClose, onSent }: Props): JSX.Element 
             <div className="compose__preview">
               <div className="compose__preview-label">Preview</div>
               <div className="compose__paper">
-                <EmailFrame html={previewHtml} allowRemote trusted light />
+                <EmailFrame html={previewHtml} allowRemote trusted surface="light" />
               </div>
             </div>
           )}

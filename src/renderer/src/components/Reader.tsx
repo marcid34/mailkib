@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type JSX } from 'react'
 import type { MailAccount, MessageFull, ThreadView } from '../../../shared/types'
 import { api, call } from '../lib/api'
 import { colorFor, displayName, formatBytes, fullTime, initials } from '../lib/format'
+import { useSettings } from '../lib/settings-context'
 import { useToast } from '../lib/toast'
 import { EmailFrame, hasRemoteImages } from './EmailFrame'
 import {
@@ -41,14 +42,16 @@ function MessageBody({
   message: MessageFull
 }): JSX.Element {
   const { fail, notify } = useToast()
-  const [showRemote, setShowRemote] = useState(false)
+  const { settings } = useSettings()
+  const [override, setOverride] = useState<boolean | null>(null)
   const html = useMemo(
     () => message.html || `<pre>${escapeText(message.text ?? '')}</pre>`,
     [message.html, message.text]
   )
   const remote = useMemo(() => hasRemoteImages(html), [html])
+  const showRemote = override ?? settings.remoteImages === 'always'
 
-  useEffect(() => setShowRemote(false), [message.id])
+  useEffect(() => setOverride(null), [message.id])
 
   async function download(attachmentId: string, filename: string, open: boolean): Promise<void> {
     try {
@@ -70,10 +73,10 @@ function MessageBody({
         <div className="images-bar">
           <IconEye size={14} />
           <span>Remote images are blocked.</span>
-          <button onClick={() => setShowRemote(true)}>Show images</button>
+          <button onClick={() => setOverride(true)}>Show images</button>
         </div>
       )}
-      <EmailFrame html={html} allowRemote={showRemote} />
+      <EmailFrame html={html} allowRemote={showRemote} surface={settings.messageSurface} />
 
       {message.attachments.length > 0 && (
         <div className="attachments">

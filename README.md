@@ -22,11 +22,11 @@ Two paths. Both end with MailKib in your application launcher.
 ### A. Download the AppImage
 
 Go to the [Releases page](https://github.com/marcid34/mailkib/releases), grab
-`MailKib-0.2.0-x86_64.AppImage`, then:
+`MailKib-0.2.1-x86_64.AppImage`, then:
 
 ```bash
 mkdir -p ~/Applications
-mv ~/Downloads/MailKib-0.2.0-x86_64.AppImage ~/Applications/MailKib.AppImage
+mv ~/Downloads/MailKib-0.2.1-x86_64.AppImage ~/Applications/MailKib.AppImage
 chmod +x ~/Applications/MailKib.AppImage
 ~/Applications/MailKib.AppImage
 ```
@@ -58,17 +58,17 @@ npm install
 # binary download. If node_modules/electron/dist/ is missing, run:
 node node_modules/electron/install.js
 
-npm run dist          # -> release/MailKib-0.2.0-x86_64.AppImage
+npm run dist          # -> release/MailKib-0.2.1-x86_64.AppImage
 ```
 
-Then install it as in **A**, pointing at `release/MailKib-0.2.0-x86_64.AppImage`.
+Then install it as in **A**, pointing at `release/MailKib-0.2.1-x86_64.AppImage`.
 
 `npm run dist:all` also produces `.pacman` and `.deb` packages. Those register their desktop
 entry through the package manager, so the self-registration step is skipped:
 
 ```bash
 npm run dist:all
-sudo pacman -U release/MailKib-0.2.0-x86_64.pacman
+sudo pacman -U release/MailKib-0.2.1-x86_64.pacman
 ```
 
 The build downloads Electron (~120 MB) the first time, so the machine needs internet for the
@@ -301,13 +301,27 @@ credentials, by design.
 ## How messages are rendered
 
 Message HTML is sanitised with DOMPurify and rendered in an iframe that has no script
-permission and its own restrictive CSP. Remote images are blocked until you click *Show
-images* on that message, so tracking pixels do not fire by default. Inline `cid:` images that
-arrived with the message are embedded directly and always display. Links open in your system
-browser rather than inside the app.
+permission and its own restrictive CSP. Inline `cid:` images that arrived with the message
+are embedded directly. Links open in your system browser rather than inside the app.
 
-Emails that hard-code their own light backgrounds will still render light — that is the
-message's own styling, and MailKib does not rewrite it.
+**Background.** HTML email is written for a white page: senders set their own dark text and
+leave the background to the client. Rendering that on a dark surface gives you dark-on-dark
+text and patchwork white blocks wherever the sender *did* set one. So *Settings → Reading →
+Message background* offers:
+
+- **Auto** (default) — messages that carry their own design (tables, `<style>`, background
+  colours, images) get a real white sheet; plain replies stay on your theme, where they look
+  native.
+- **Light** — every message on a white sheet.
+- **Dark** — every message on your theme. Expect some senders to look wrong.
+
+Messages laid out wider than the reading pane — newsletters are usually built at 600px — are
+scaled down to fit rather than given a horizontal scrollbar.
+
+**Remote images.** *Settings → Reading → Remote images* is **Always** by default, because
+blocked images make most mail look broken. Set it to **Ask** to get a per-message "Show
+images" bar instead, or **Never**. Loading remote images tells the sender you opened the
+message; that is how tracking pixels work.
 
 ---
 
