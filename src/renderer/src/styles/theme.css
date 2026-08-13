@@ -38,8 +38,13 @@
   --radius: 9px;
   --radius-lg: 14px;
 
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans",
-    "Liberation Sans", sans-serif;
+  /* Deliberately no `system-ui` here. On Linux it makes Chromium resolve bare
+     ASCII digits to Noto Color Emoji — which covers 0-9 for keycap sequences
+     like 1️⃣ — so numbers rendered as wide, uniform-width emoji glyphs next to
+     normal letters. Leading with a concrete text family keeps digits in the
+     same face as the text. */
+  --font: Inter, "Adwaita Sans", Cantarell, "Noto Sans", "DejaVu Sans",
+    "Liberation Sans", Roboto, sans-serif;
   --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
   --titlebar-h: 38px;
