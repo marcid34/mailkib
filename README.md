@@ -22,11 +22,11 @@ Two paths. Both end with MailKib in your application launcher.
 ### A. Download the AppImage
 
 Go to the [Releases page](https://github.com/marcid34/mailkib/releases), grab
-`MailKib-0.2.3-x86_64.AppImage`, then:
+`MailKib-0.2.4-x86_64.AppImage`, then:
 
 ```bash
 mkdir -p ~/Applications
-mv ~/Downloads/MailKib-0.2.3-x86_64.AppImage ~/Applications/MailKib.AppImage
+mv ~/Downloads/MailKib-0.2.4-x86_64.AppImage ~/Applications/MailKib.AppImage
 chmod +x ~/Applications/MailKib.AppImage
 ~/Applications/MailKib.AppImage
 ```
@@ -58,17 +58,17 @@ npm install
 # binary download. If node_modules/electron/dist/ is missing, run:
 node node_modules/electron/install.js
 
-npm run dist          # -> release/MailKib-0.2.3-x86_64.AppImage
+npm run dist          # -> release/MailKib-0.2.4-x86_64.AppImage
 ```
 
-Then install it as in **A**, pointing at `release/MailKib-0.2.3-x86_64.AppImage`.
+Then install it as in **A**, pointing at `release/MailKib-0.2.4-x86_64.AppImage`.
 
 `npm run dist:all` also produces `.pacman` and `.deb` packages. Those register their desktop
 entry through the package manager, so the self-registration step is skipped:
 
 ```bash
 npm run dist:all
-sudo pacman -U release/MailKib-0.2.3-x86_64.pacman
+sudo pacman -U release/MailKib-0.2.4-x86_64.pacman
 ```
 
 The build downloads Electron (~120 MB) the first time, so the machine needs internet for the
