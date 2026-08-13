@@ -4,6 +4,7 @@ import { colorFor, initials } from '../lib/format'
 import {
   IconAllMail,
   IconArchive,
+  IconContacts,
   IconDraft,
   IconFolder,
   IconInbox,
@@ -44,6 +45,7 @@ interface Props {
   onSelectAccount: (id: string) => void
   onSelectFolder: (folder: FolderId) => void
   onAddAccount: () => void
+  onAddressBook: () => void
   onSettings: () => void
   onLogout: () => void
   onLabelMenu: (event: MouseEvent, label: MailFolder) => void
@@ -62,6 +64,7 @@ export function Sidebar({
   onSelectAccount,
   onSelectFolder,
   onAddAccount,
+  onAddressBook,
   onSettings,
   onLogout,
   onLabelMenu,
@@ -201,6 +204,10 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar__foot">
+        <button className="nav__item" onClick={onAddressBook}>
+          <IconContacts size={15} />
+          <span className="nav__text">Address book</span>
+        </button>
         <button className="nav__item" onClick={onAddAccount}>
           <IconPlus size={15} />
           <span className="nav__text">Add account</span>

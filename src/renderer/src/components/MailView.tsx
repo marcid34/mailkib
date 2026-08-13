@@ -992,6 +992,7 @@ export function MailView({
           onSelectAccount={setAccountId}
           onSelectFolder={setFolder}
           onAddAccount={onAddAccount}
+          onAddressBook={() => setAddressBookOpen(true)}
           onSettings={() => setSettingsOpen(true)}
           onLogout={onLogout}
           onLabelMenu={openLabelMenu}
@@ -1108,6 +1109,10 @@ export function MailView({
           onAddAccount={() => {
             setSettingsOpen(false)
             onAddAccount()
+          }}
+          onAddressBook={() => {
+            setSettingsOpen(false)
+            setAddressBookOpen(true)
           }}
         />
       )}

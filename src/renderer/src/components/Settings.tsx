@@ -5,7 +5,7 @@ import { colorFor, initials } from '../lib/format'
 import { useSettings, useTheme } from '../lib/settings-context'
 import { THEMES } from '../lib/themes'
 import { useToast } from '../lib/toast'
-import { IconKey, IconPlus, IconX } from './Icons'
+import { IconContacts, IconKey, IconPlus, IconX } from './Icons'
 
 interface Props {
   user: AppUser
@@ -14,6 +14,7 @@ interface Props {
   onClose: () => void
   onAccountsChanged: () => void
   onAddAccount: () => void
+  onAddressBook: () => void
 }
 
 export function Settings({
@@ -22,7 +23,8 @@ export function Settings({
   accounts,
   onClose,
   onAccountsChanged,
-  onAddAccount
+  onAddAccount,
+  onAddressBook
 }: Props): JSX.Element {
   const { notify, fail } = useToast()
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null)
@@ -246,6 +248,25 @@ export function Settings({
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          <div className="settings__group">
+            <h4>Address book</h4>
+            <div className="settings__row">
+              <IconContacts size={17} />
+              <div className="grow">
+                <div className="title">
+                  {stats ? `${stats.contacts} contacts` : 'Contacts'}
+                </div>
+                <div className="sub">
+                  Learned from the mail you read and send. Hide anyone you do not want
+                  suggested — hiding survives future syncs, deleting does not.
+                </div>
+              </div>
+              <button className="btn btn--ghost btn--sm" onClick={onAddressBook}>
+                Manage
+              </button>
             </div>
           </div>
 
