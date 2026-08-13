@@ -59,8 +59,15 @@ const api: MailkibApi = {
     cached: (query: ListQuery) => invoke<ListResult>('mail:cached', query),
     cachedThread: (accountId: string, threadId: string) =>
       invoke<ThreadView | null>('mail:cachedThread', { accountId, threadId }),
-    contacts: (accountId: string, query?: string, limit?: number) =>
-      invoke<Contact[]>('mail:contacts', { accountId, query, limit }),
+    contacts: (accountId: string, query?: string, limit?: number, includeHidden?: boolean) =>
+      invoke<Contact[]>('mail:contacts', { accountId, query, limit, includeHidden }),
+    updateContact: (
+      accountId: string,
+      email: string,
+      patch: { name?: string; hidden?: boolean }
+    ) => invoke<Contact | null>('mail:updateContact', { accountId, email, patch }),
+    deleteContact: (accountId: string, email: string) =>
+      invoke<boolean>('mail:deleteContact', { accountId, email }),
     cacheStats: (accountId: string) => invoke<CacheStats>('mail:cacheStats', { accountId }),
     clearCache: (accountId: string) => invoke<boolean>('mail:clearCache', { accountId }),
     thread: (accountId: string, threadId: string) =>

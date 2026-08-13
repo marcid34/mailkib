@@ -180,6 +180,12 @@ export class GraphProvider implements MailProvider {
         : `${BASE}/messages?${select}&${top}&${filter}&$orderby=receivedDateTime desc`
     }
 
+    if (query.folder === 'all') {
+      return search
+        ? `${BASE}/messages?${select}&${top}&$search="${encodeURIComponent(search)}"`
+        : `${BASE}/messages?${select}&${top}&$orderby=receivedDateTime desc`
+    }
+
     const folder = FOLDERS[query.folder] ?? 'inbox'
     // $search cannot be combined with $orderby in Graph.
     return search

@@ -36,6 +36,7 @@ export type SystemFolderId =
   | 'sent'
   | 'drafts'
   | 'archive'
+  | 'all'
   | 'spam'
   | 'trash'
 
@@ -173,6 +174,11 @@ export interface Contact {
   /** times we addressed them directly */
   sent: number
   lastSeen: number
+  /**
+   * Kept out of suggestions. Survives re-learning -- contacts are harvested from
+   * every sync, so a plain delete would simply come back.
+   */
+  hidden?: boolean
 }
 
 export interface CacheStats {

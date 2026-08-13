@@ -2,6 +2,7 @@ import { useState, type DragEvent, type JSX, type MouseEvent } from 'react'
 import type { FolderId, MailAccount, MailFolder, SystemFolderId } from '../../../shared/types'
 import { colorFor, initials } from '../lib/format'
 import {
+  IconAllMail,
   IconArchive,
   IconDraft,
   IconFolder,
@@ -28,6 +29,7 @@ export const FOLDERS: {
   { id: 'sent', name: 'Sent', icon: IconSend },
   { id: 'drafts', name: 'Drafts', icon: IconDraft },
   { id: 'archive', name: 'Archive', icon: IconArchive, droppable: true },
+  { id: 'all', name: 'All Mail', icon: IconAllMail },
   { id: 'spam', name: 'Spam', icon: IconSpam },
   { id: 'trash', name: 'Trash', icon: IconTrash, droppable: true }
 ]

@@ -13,6 +13,8 @@ interface Props {
   search: string
   tokens: SearchToken[]
   terms: string[]
+  searchScope: 'all' | 'folder'
+  onSearchScope: (scope: 'all' | 'folder') => void
   suggestions: Suggestion[]
   cursor: number
   openThreadId: string | null
@@ -55,6 +57,8 @@ export function MessageList({
   search,
   tokens,
   terms,
+  searchScope,
+  onSearchScope,
   suggestions,
   cursor,
   openThreadId,
@@ -98,9 +102,27 @@ export function MessageList({
             {loading
               ? 'Loading…'
               : `${messages.length}${hasMore ? '+' : ''} conversation${messages.length === 1 ? '' : 's'}`}
-            {search && !loading ? ` in ${folderName.toLowerCase()}` : ''}
           </span>
         </div>
+
+        {search && (
+          <div className="scope">
+            <button
+              className={`scope__btn${searchScope === 'all' ? ' is-on' : ''}`}
+              onClick={() => onSearchScope('all')}
+              title="Search every message, including archived"
+            >
+              Everywhere
+            </button>
+            <button
+              className={`scope__btn${searchScope === 'folder' ? ' is-on' : ''}`}
+              onClick={() => onSearchScope('folder')}
+              title={`Search only ${folderName}`}
+            >
+              In {folderName}
+            </button>
+          </div>
+        )}
 
         <div className="search-wrap">
           <div className={`search${focused ? ' is-focused' : ''}`}>

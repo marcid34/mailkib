@@ -80,6 +80,10 @@ export function MailView({
   const [folder, setFolder] = useState<FolderId>('inbox')
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
+  // Gmail's search box always searches All Mail regardless of where you are
+  // standing, and that is the expectation people bring. Scoping to the current
+  // folder is available, but opt-in.
+  const [searchScope, setSearchScope] = useState<'all' | 'folder'>('all')
 
   const [messages, setMessages] = useState<MessageSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -113,6 +117,9 @@ export function MailView({
     [accounts, accountId]
   )
 
+  /** What the provider is actually asked for: a global search leaves the folder. */
+  const queryFolder: FolderId = search && searchScope === 'all' ? 'all' : folder
+
   useEffect(() => {
     if (!accounts.some((a) => a.id === accountId)) setAccountId(accounts[0]?.id ?? '')
   }, [accounts, accountId])
@@ -120,6 +127,10 @@ export function MailView({
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput.trim()), 180)
     return () => clearTimeout(timer)
+  }, [searchInput])
+
+  useEffect(() => {
+    if (!searchInput) setSearchScope('all')
   }, [searchInput])
 
   /* ----------------------------- data loading ---------------------------- */
@@ -135,7 +146,11 @@ export function MailView({
         setLoading(true)
         try {
           const cached = await call(
-            api.mail.cached({ accountId: account.id, folder, search: search || undefined })
+            api.mail.cached({
+              accountId: account.id,
+              folder: queryFolder,
+              search: search || undefined
+            })
           )
           if (requestId.current !== id) return
           if (cached.messages.length > 0) {
@@ -149,7 +164,11 @@ export function MailView({
 
       try {
         const result = await call(
-          api.mail.list({ accountId: account.id, folder, search: search || undefined })
+          api.mail.list({
+            accountId: account.id,
+            folder: queryFolder,
+            search: search || undefined
+          })
         )
         if (requestId.current !== id) return
         setMessages(result.messages)
@@ -165,7 +184,7 @@ export function MailView({
         if (requestId.current === id) setLoading(false)
       }
     },
-    [account, folder, search, fail]
+    [account, queryFolder, search, fail]
   )
 
   const loadCounts = useCallback(async () => {
@@ -220,7 +239,7 @@ export function MailView({
       const result = await call(
         api.mail.list({
           accountId: account.id,
-          folder,
+          folder: queryFolder,
           search: search || undefined,
           pageToken
         })
@@ -775,7 +794,8 @@ export function MailView({
           s: 'starred',
           t: 'sent',
           d: 'drafts',
-          a: 'archive',
+          a: 'all',
+          e: 'archive',
           x: 'trash',
           p: 'spam'
         }
@@ -989,6 +1009,8 @@ export function MailView({
           search={searchInput}
           tokens={tokens}
           terms={terms}
+          searchScope={searchScope}
+          onSearchScope={setSearchScope}
           suggestions={searchSuggestions}
           cursor={cursor}
           openThreadId={openThreadId}

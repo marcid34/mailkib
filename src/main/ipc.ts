@@ -201,9 +201,39 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     getSettings().cacheEnabled ? cache.cachedThread(p.accountId, p.threadId) : null
   )
 
-  handle('mail:contacts', (p: { accountId: string; query?: string; limit?: number }): Contact[] => {
-    const all = cache.allContacts(p.accountId)
-    return cache.rankContacts(all, p.query ?? '', p.limit ?? 8)
+  handle(
+    'mail:contacts',
+    (p: {
+      accountId: string
+      query?: string
+      limit?: number
+      includeHidden?: boolean
+    }): Contact[] => {
+      const all = cache.allContacts(p.accountId, p.includeHidden)
+      if (p.includeHidden) {
+        // Managing the address book means seeing hidden entries too, so skip the
+        // suggestion ranking and just sort them for a browsable list.
+        const q = (p.query ?? '').trim().toLowerCase()
+        return all
+          .filter(
+            (c) => !q || c.email.includes(q) || (c.name ?? '').toLowerCase().includes(q)
+          )
+          .sort((a, b) => b.sent - a.sent || b.seen - a.seen || b.lastSeen - a.lastSeen)
+          .slice(0, p.limit ?? 300)
+      }
+      return cache.rankContacts(all, p.query ?? '', p.limit ?? 8)
+    }
+  )
+
+  handle(
+    'mail:updateContact',
+    (p: { accountId: string; email: string; patch: { name?: string; hidden?: boolean } }) =>
+      cache.updateContact(p.accountId, p.email, p.patch)
+  )
+
+  handle('mail:deleteContact', (p: { accountId: string; email: string }) => {
+    cache.deleteContact(p.accountId, p.email)
+    return true
   })
 
   handle('mail:cacheStats', (p: { accountId: string }): CacheStats => cache.cacheStats(p.accountId))

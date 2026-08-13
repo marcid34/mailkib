@@ -22,11 +22,11 @@ Two paths. Both end with MailKib in your application launcher.
 ### A. Download the AppImage
 
 Go to the [Releases page](https://github.com/marcid34/mailkib/releases), grab
-`MailKib-0.2.1-x86_64.AppImage`, then:
+`MailKib-0.2.2-x86_64.AppImage`, then:
 
 ```bash
 mkdir -p ~/Applications
-mv ~/Downloads/MailKib-0.2.1-x86_64.AppImage ~/Applications/MailKib.AppImage
+mv ~/Downloads/MailKib-0.2.2-x86_64.AppImage ~/Applications/MailKib.AppImage
 chmod +x ~/Applications/MailKib.AppImage
 ~/Applications/MailKib.AppImage
 ```
@@ -58,17 +58,17 @@ npm install
 # binary download. If node_modules/electron/dist/ is missing, run:
 node node_modules/electron/install.js
 
-npm run dist          # -> release/MailKib-0.2.1-x86_64.AppImage
+npm run dist          # -> release/MailKib-0.2.2-x86_64.AppImage
 ```
 
-Then install it as in **A**, pointing at `release/MailKib-0.2.1-x86_64.AppImage`.
+Then install it as in **A**, pointing at `release/MailKib-0.2.2-x86_64.AppImage`.
 
 `npm run dist:all` also produces `.pacman` and `.deb` packages. Those register their desktop
 entry through the package manager, so the self-registration step is skipped:
 
 ```bash
 npm run dist:all
-sudo pacman -U release/MailKib-0.2.1-x86_64.pacman
+sudo pacman -U release/MailKib-0.2.2-x86_64.pacman
 ```
 
 The build downloads Electron (~120 MB) the first time, so the machine needs internet for the
@@ -191,7 +191,7 @@ MailKib is built to be driven without the mouse.
 | `/` | search |
 | `ctrl+k` | command palette |
 | `ctrl+r` | refresh |
-| `g` then `i s t d a x` | inbox, starred, sent, drafts, archive, trash |
+| `g` then `i s t d a e x` | inbox, starred, sent, drafts, all mail, archive, trash |
 | `g` then `c` | address book |
 | `?` | shortcut cheatsheet |
 
@@ -243,13 +243,26 @@ never written to disk.
 
 ## Address book
 
-Contacts are learned from the mail you read and send — no extra OAuth scope, no Google
-Contacts permission. People you write to rank above people who merely write to you, then by
-frequency, then recency.
+Contacts are learned automatically from the mail you read and send — no extra OAuth scope,
+no Google Contacts permission. Every sync and every thread you open feeds it. People you
+write to rank above people who merely write to you, then by frequency, then recency.
 
 - **`g` then `c`** (or the command palette) opens the address book: searchable, `↵` to
-  compose to someone, right-click to copy their address.
+  compose to someone.
 - **To / Cc / Bcc autocomplete** as you type, including after a comma. `↵` or `tab` accepts.
+
+Because contacts are learned, they need managing. Right-click anyone in the address book, or
+use the button on their row:
+
+- **Hide from suggestions** — keeps them out of autocomplete permanently. This is the one you
+  want for an address that keeps surfacing: it survives re-learning, so the next sync will not
+  bring it back.
+- **Rename** — a local display name, for senders whose own name is unhelpful.
+- **Forget** — deletes the record entirely. Honest warning: it comes back if they appear in
+  your mail again. Hide, don't forget, if you want it gone for good.
+
+Hidden contacts stay visible in the address book, greyed out and tagged, so you can restore
+them.
 
 ## Writing
 
@@ -265,7 +278,21 @@ Three composer modes, switched from the toolbar:
 The preview (eye icon) renders on white, because that is what your recipient will most likely
 be looking at. It is deliberately *not* sanitised, so what you see is what gets sent.
 
-## Search
+## Folders, archiving and search
+
+**Archiving** removes only the `INBOX` label from the conversation — the same operation
+Gmail's own archive performs. Nothing is deleted and every other label is kept.
+
+- **All Mail** is everything except Spam and Trash, exactly like Gmail's. Anything you ever
+  archived lives here.
+- **Archive** is the narrower view of mail filed away from the inbox
+  (`-in:inbox -in:sent -in:draft`). Both are computed by Gmail, so they include mail archived
+  long before MailKib existed.
+
+**Search is global by default.** Typing in the search box searches every message regardless
+of the folder you are standing in — archived mail included — which is what Gmail's search box
+does. A scope control appears above the field so you can restrict it back to the current
+folder.
 
 Terms are ANDed, quotes hold a phrase together, and Gmail's operators work as usual:
 `from:`, `to:`, `subject:`, `label:`, `has:attachment`, `is:unread`, `before:`/`after:`.

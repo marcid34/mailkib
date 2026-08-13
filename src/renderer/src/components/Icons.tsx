@@ -229,6 +229,23 @@ export const IconText = (p: IconProps): JSX.Element => (
   </Svg>
 )
 
+export const IconAllMail = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="2.5" y="7.5" width="19" height="13" rx="2" />
+    <path d="m3 9 8.4 5.6a1 1 0 0 0 1.2 0L21 9" />
+    <path d="M6 4.5h12" />
+  </Svg>
+)
+
+export const IconEyeOff = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M10.7 5.2A9.6 9.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3 3.9" />
+    <path d="M6.3 6.4A17 17 0 0 0 2 12s3.6 7 10 7a9.4 9.4 0 0 0 4.3-1" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <path d="m3 3 18 18" />
+  </Svg>
+)
+
 export const IconTag = (p: IconProps): JSX.Element => (
   <Svg {...p}>
     <path d="M20.6 13.4 12.4 21.6a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1-.6-1.4V4a2 2 0 0 1 2-2h9a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.8z" />

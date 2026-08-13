@@ -228,6 +228,8 @@ function remember(file: CacheFile, person: Recipient, outgoing: boolean, when: n
   if (!email || !email.includes('@')) return
   const existing = file.contacts[email]
   if (existing) {
+    // A hidden contact stays hidden no matter how often they turn up again --
+    // that is the whole point of hiding rather than deleting.
     existing.seen += 1
     if (outgoing) existing.sent += 1
     if (when > existing.lastSeen) existing.lastSeen = when
@@ -263,18 +265,43 @@ export function learnContacts(
   flushLater(accountId)
 }
 
-export function allContacts(accountId: string): Contact[] {
-  return Object.values(load(accountId).contacts)
+export function allContacts(accountId: string, includeHidden = false): Contact[] {
+  const all = Object.values(load(accountId).contacts)
+  return includeHidden ? all : all.filter((c) => !c.hidden)
+}
+
+export function updateContact(
+  accountId: string,
+  email: string,
+  patch: { name?: string; hidden?: boolean }
+): Contact | null {
+  const file = load(accountId)
+  const contact = file.contacts[keyFor(email)]
+  if (!contact) return null
+  if (patch.name !== undefined) contact.name = patch.name.trim() || undefined
+  if (patch.hidden !== undefined) contact.hidden = patch.hidden || undefined
+  flushLater(accountId)
+  return contact
+}
+
+/**
+ * Remove the record outright. Contacts are re-learned from every sync, so this
+ * only sticks until they appear in your mail again -- hide instead, to be rid of
+ * someone for good.
+ */
+export function deleteContact(accountId: string, email: string): void {
+  const file = load(accountId)
+  delete file.contacts[keyFor(email)]
+  flushLater(accountId)
 }
 
 /** Rank by how often you write to them, then how often you see them, then recency. */
 export function rankContacts(contacts: Contact[], query: string, limit = 8): Contact[] {
   const q = query.trim().toLowerCase()
+  const visible = contacts.filter((c) => !c.hidden)
   const pool = q
-    ? contacts.filter(
-        (c) => c.email.includes(q) || (c.name ?? '').toLowerCase().includes(q)
-      )
-    : contacts
+    ? visible.filter((c) => c.email.includes(q) || (c.name ?? '').toLowerCase().includes(q))
+    : visible
 
   return pool
     .map((contact) => {

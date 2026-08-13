@@ -58,7 +58,18 @@ export interface MailkibApi {
     list: (query: ListQuery) => Promise<Result<ListResult>>
     cached: (query: ListQuery) => Promise<Result<ListResult>>
     cachedThread: (accountId: string, threadId: string) => Promise<Result<ThreadView | null>>
-    contacts: (accountId: string, query?: string, limit?: number) => Promise<Result<Contact[]>>
+    contacts: (
+      accountId: string,
+      query?: string,
+      limit?: number,
+      includeHidden?: boolean
+    ) => Promise<Result<Contact[]>>
+    updateContact: (
+      accountId: string,
+      email: string,
+      patch: { name?: string; hidden?: boolean }
+    ) => Promise<Result<Contact | null>>
+    deleteContact: (accountId: string, email: string) => Promise<Result<boolean>>
     cacheStats: (accountId: string) => Promise<Result<CacheStats>>
     clearCache: (accountId: string) => Promise<Result<boolean>>
     thread: (accountId: string, threadId: string) => Promise<Result<ThreadView>>

@@ -121,6 +121,10 @@ function folderFilter(folder: FolderId, search?: string): { labelIds?: string[];
     case 'archive':
       // Gmail has no "archive" label: it is everything filed away from the inbox.
       return { q: withSearch('-in:inbox -in:sent -in:draft -in:chats') }
+    case 'all':
+      // No label filter at all. messages.list leaves out spam and trash unless
+      // includeSpamTrash is set, so this is exactly Gmail's "All Mail".
+      return { q: withSearch('-in:chats') }
   }
 }
 
