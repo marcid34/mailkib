@@ -1,0 +1,125 @@
+/* Tokyo Night (Storm) — deliberately not pure black. */
+:root {
+  --bg: #24283b;
+  --bg-deep: #1f2335;
+  --bg-sunken: #1d2130;
+  --bg-raise: #2a2f45;
+  --bg-hover: #292e42;
+  --bg-active: #343a55;
+  --bg-overlay: rgba(22, 25, 38, 0.62);
+
+  --border: #303650;
+  --border-soft: #2a3048;
+  --border-strong: #3b4261;
+
+  --fg: #c0caf5;
+  --fg-dim: #a9b1d6;
+  --fg-mute: #848cad;
+  --fg-faint: #565f89;
+
+  --blue: #7aa2f7;
+  --cyan: #7dcfff;
+  --teal: #2ac3de;
+  --green: #9ece6a;
+  --yellow: #e0af68;
+  --orange: #ff9e64;
+  --red: #f7768e;
+  --purple: #bb9af7;
+
+  --accent: var(--blue);
+  --accent-soft: rgba(122, 162, 247, 0.14);
+  --accent-line: rgba(122, 162, 247, 0.35);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.42);
+
+  --radius-sm: 6px;
+  --radius: 9px;
+  --radius-lg: 14px;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans",
+    "Liberation Sans", sans-serif;
+  --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  --titlebar-h: 38px;
+  --sidebar-w: 224px;
+  --list-w: 400px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  outline: none;
+  user-select: text;
+}
+
+::selection {
+  background: var(--accent-line);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-faint);
+  background-clip: content-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+/* Text fields sit inside containers that light up on :focus-within, and the
+   caret already marks the focus, so a second ring around them just adds noise. */
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
