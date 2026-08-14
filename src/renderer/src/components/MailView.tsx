@@ -123,6 +123,8 @@ export function MailView({
 
   const searchRef = useRef<HTMLInputElement>(null)
   const requestId = useRef(0)
+  /** The account/folder/query the rows currently on screen answer. */
+  const shownFor = useRef('')
   const goPending = useRef(0)
 
   const account = useMemo(
@@ -181,6 +183,12 @@ export function MailView({
               .sort((a, b) => b.date - a.date)
               .slice(0, MERGED_LIMIT)
 
+      // What the rows on screen are currently an answer to. Anything else must
+      // not be left standing in for this query -- showing a whole folder while a
+      // search runs reads as "the search returned everything".
+      const asking = `${everywhere ? '*' : account.id}|${queryFolder}|${search}`
+      const stale = shownFor.current !== asking
+
       // Paint whatever we already hold, then let the network correct it. This is
       // what makes switching folders and typing a search feel immediate.
       if (!silent) {
@@ -204,6 +212,9 @@ export function MailView({
           if (cached.length > 0) {
             setMessages(cached)
             setCursor(0)
+            shownFor.current = asking
+          } else if (stale) {
+            setMessages([])
           }
         } catch {
           /* cache is an optimisation; ignore and wait for the network */
@@ -232,6 +243,7 @@ export function MailView({
         if (requestId.current !== id) return
         const merged = merge(results.map((r) => r.messages))
         setMessages(merged)
+        shownFor.current = asking
         // Paging a merged list would need a page token per account; an
         // all-mailbox search shows the freshest matches and stops there.
         setPageToken(everywhere ? undefined : results[0]?.nextPageToken)
@@ -242,7 +254,14 @@ export function MailView({
           setThread(null)
         }
       } catch (error) {
-        if (requestId.current === id) fail(error)
+        if (requestId.current !== id) return
+        fail(error)
+        // A failed search must not leave the folder listing sitting there
+        // looking like its result.
+        if (stale) {
+          setMessages([])
+          setPageToken(undefined)
+        }
       } finally {
         if (requestId.current === id) setLoading(false)
       }
@@ -485,6 +504,15 @@ export function MailView({
     },
     [tokens]
   )
+
+  /**
+   * Enter means "I have finished typing": run this query now rather than after
+   * the debounce, so the list stops showing the folder a keystroke longer than
+   * it has to.
+   */
+  const commitSearch = useCallback(() => {
+    setSearch(searchInput.trim())
+  }, [searchInput])
 
   /** `/` always lands in the narrowest scope; Tab from there widens it. */
   const focusSearch = useCallback(() => {
@@ -1150,6 +1178,7 @@ export function MailView({
           searchScope={searchScope}
           onSearchScope={setSearchScope}
           onCycleScope={widenScope}
+          onCommitSearch={commitSearch}
           suggestions={searchSuggestions}
           cursor={cursor}
           openThreadId={openThreadId}

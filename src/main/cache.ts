@@ -167,6 +167,9 @@ export function dropThread(accountId: string, threadId: string): void {
   flushLater(accountId)
 }
 
+/** How many rows the cache may add to a provider's search answer. */
+const CACHE_FILL_LIMIT = 25
+
 const NO_FOLDERS: Set<string> = new Set()
 
 /** Which system folders the cache has seen each message in, for `in:` and scoping. */
@@ -227,12 +230,9 @@ export function withCachedMatches(
   accountId: string,
   folder: FolderId,
   query: string,
-  messages: MessageSummary[],
-  limit = 60
+  messages: MessageSummary[]
 ): MessageSummary[] {
-  const local = searchCached(accountId, folder, query, limit)
-  if (local.length === 0) return messages
-
+  const local = searchCached(accountId, folder, query, CACHE_FILL_LIMIT)
   const seen = new Set(messages.map((m) => m.threadId))
   const extra = local.filter((m) => !seen.has(m.threadId))
   if (extra.length === 0) return messages

@@ -160,9 +160,17 @@ export function locallyAnswerable(token: SearchToken): boolean {
   return token.operator !== 'label' && token.operator !== 'filename'
 }
 
-/** Is the whole query something the cache can answer faithfully? */
+/**
+ * Is the whole query something the cache can answer faithfully?
+ *
+ * A one or two letter term starts a word in almost every message, so answering
+ * it locally means answering "everything" -- which buries the provider's real
+ * hits under the entire mailbox. Below three characters the reader is still
+ * typing, so the cache stays quiet and lets the server speak.
+ */
 export function locallyAnswerableQuery(tokens: SearchToken[]): boolean {
-  return tokens.length > 0 && tokens.every(locallyAnswerable)
+  if (tokens.length === 0 || !tokens.every(locallyAnswerable)) return false
+  return !tokens.some((t) => !t.operator && !t.negated && t.value.length < 3)
 }
 
 function matchesToken(

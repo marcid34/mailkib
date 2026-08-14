@@ -20,6 +20,7 @@ interface Props {
   searchScope: SearchScope
   onSearchScope: (scope: SearchScope) => void
   onCycleScope: (step: number) => void
+  onCommitSearch: () => void
   suggestions: Suggestion[]
   cursor: number
   openThreadId: string | null
@@ -68,6 +69,7 @@ export function MessageList({
   searchScope,
   onSearchScope,
   onCycleScope,
+  onCommitSearch,
   suggestions,
   cursor,
   openThreadId,
@@ -199,10 +201,14 @@ export function MessageList({
                 }
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  if (showSuggestions) {
+                  // Only a suggestion the reader actually moved to replaces what
+                  // they typed. Enter on its own commits the query as written.
+                  if (showSuggestions && suggestionCursor > 0) {
                     onSearch(suggestions[suggestionCursor].query + ' ')
-                    setFocused(false)
+                  } else {
+                    onCommitSearch()
                   }
+                  setFocused(false)
                   e.currentTarget.blur()
                 }
               }}

@@ -189,8 +189,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       query.accountId,
       query.folder,
       search,
-      result.messages,
-      query.limit ?? 60
+      result.messages
     )
     if (messages.length !== result.messages.length) cache.saveList(query.accountId, key, messages)
     return { ...result, messages }
