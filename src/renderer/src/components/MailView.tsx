@@ -26,6 +26,7 @@ import {
   highlightTerms,
   suggestions as buildSuggestions,
   tokenize,
+  SEARCH_SCOPES,
   type SearchScope
 } from '../lib/search'
 import { useToast } from '../lib/toast'
@@ -129,6 +130,12 @@ export function MailView({
     [accounts, accountId]
   )
 
+  /** One account has nowhere wider to go than its own mailbox. */
+  const scopes = useMemo<SearchScope[]>(
+    () => (accounts.length > 1 ? SEARCH_SCOPES : ['folder', 'mailbox']),
+    [accounts.length]
+  )
+
   /** What the provider is actually asked for: a widened search leaves the folder. */
   const queryFolder: FolderId = search && searchScope !== 'folder' ? 'all' : folder
 
@@ -145,6 +152,10 @@ export function MailView({
   useEffect(() => {
     if (!accounts.some((a) => a.id === accountId)) setAccountId(accounts[0]?.id ?? '')
   }, [accounts, accountId])
+
+  useEffect(() => {
+    setSearchScope((scope) => (scopes.includes(scope) ? scope : 'mailbox'))
+  }, [scopes])
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchInput.trim()), 180)
@@ -482,9 +493,12 @@ export function MailView({
     searchRef.current?.select()
   }, [])
 
-  const widenScope = useCallback((step: number) => {
-    setSearchScope((scope) => cycleScope(scope, step))
-  }, [])
+  const widenScope = useCallback(
+    (step: number) => {
+      setSearchScope((scope) => cycleScope(scope, step, scopes))
+    },
+    [scopes]
+  )
 
   /* ------------------------- labels: move and manage ---------------------- */
 

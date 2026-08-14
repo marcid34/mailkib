@@ -199,7 +199,14 @@ export class GraphProvider implements MailProvider {
       this.accountId,
       url
     )
-    const messages = (page.value ?? []).map((m) => this.toSummary(m))
+    let messages = (page.value ?? []).map((m) => this.toSummary(m))
+
+    // Graph refuses $search alongside $filter, so searching Starred asks the
+    // whole mailbox and keeps the flagged answers here instead of quietly
+    // widening the scope the user chose.
+    if (query.folder === 'starred' && query.search?.trim()) {
+      messages = messages.filter((m) => m.starred)
+    }
 
     // Collapse to one row per conversation, newest first.
     const byThread = new Map<string, MessageSummary>()

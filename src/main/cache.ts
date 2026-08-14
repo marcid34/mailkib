@@ -6,6 +6,7 @@ import type {
   Recipient,
   ThreadView
 } from '../shared/types'
+import { locallyAnswerableQuery, matchesQuery, tokenize } from '../shared/search'
 import { readEncrypted, writeEncrypted, removeFile } from './store'
 
 /**
@@ -166,9 +167,29 @@ export function dropThread(accountId: string, threadId: string): void {
   flushLater(accountId)
 }
 
+const NO_FOLDERS: Set<string> = new Set()
+
+/** Which system folders the cache has seen each message in, for `in:` and scoping. */
+function folderIndex(file: CacheFile): Map<string, Set<string>> {
+  const index = new Map<string, Set<string>>()
+  for (const [key, ids] of Object.entries(file.lists)) {
+    // Skip search results (`inbox::vox`): they say what matched, not where it lives.
+    if (key.includes('::')) continue
+    for (const id of ids) {
+      const set = index.get(id)
+      if (set) set.add(key)
+      else index.set(id, new Set([key]))
+    }
+  }
+  return index
+}
+
 /**
- * Search what we already hold. Terms are ANDed and matched against the fields a
- * summary actually carries, which is the same shape the server search returns.
+ * Search what we already hold, honouring the folder we were asked about.
+ *
+ * `folder` is the scope, not a hint: `inbox` looks only at what the inbox has
+ * cached, while `all` looks at the whole account. Getting that wrong makes every
+ * search scope return the same rows in a different order.
  */
 export function searchCached(
   accountId: string,
@@ -177,42 +198,46 @@ export function searchCached(
   limit = 60
 ): MessageSummary[] {
   const file = load(accountId)
-  const terms = (query.match(/"[^"]*"|\S+/g) ?? [])
-    .map((raw) => raw.replace(/^"|"$/g, '').toLowerCase())
-    .filter((term) => term.length > 0 && !term.endsWith(':'))
-  if (terms.length === 0) return []
+  const tokens = tokenize(query)
+  if (!locallyAnswerableQuery(tokens)) return []
 
-  const inFolder = new Set(file.lists[folder] ?? [])
-  const scored: { message: MessageSummary; score: number }[] = []
+  const index = folderIndex(file)
+  const scoped = folder === 'all' ? null : new Set(file.lists[folder] ?? [])
+  const now = Date.now()
+  const hits: MessageSummary[] = []
 
   for (const message of Object.values(file.messages)) {
-    const haystack = [
-      message.subject,
-      message.snippet,
-      message.from.name ?? '',
-      message.from.email,
-      ...message.to.map((r) => `${r.name ?? ''} ${r.email}`)
-    ]
-      .join(' ')
-      .toLowerCase()
-
-    let matched = true
-    for (const term of terms) {
-      const bare = term.replace(/^(from|to|cc|subject|label|in|has|is):/, '')
-      if (!haystack.includes(bare)) {
-        matched = false
-        break
-      }
+    if (scoped && !scoped.has(message.id)) continue
+    if (!matchesQuery(message, tokens, { folders: index.get(message.id) ?? NO_FOLDERS, now })) {
+      continue
     }
-    if (!matched) continue
-    // Prefer the folder being searched, then recency.
-    scored.push({ message, score: (inFolder.has(message.id) ? 1e15 : 0) + message.date })
+    hits.push(message)
   }
 
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((s) => s.message)
+  return hits.sort((a, b) => b.date - a.date).slice(0, limit)
+}
+
+/**
+ * Fold locally known matches into a server answer. The cache holds no bodies,
+ * but it does hold every summary we have seen, and it matches word prefixes --
+ * so a half-typed name the provider's index refuses to match still finds the
+ * mail you were looking for. Server rows win on conflict.
+ */
+export function withCachedMatches(
+  accountId: string,
+  folder: FolderId,
+  query: string,
+  messages: MessageSummary[],
+  limit = 60
+): MessageSummary[] {
+  const local = searchCached(accountId, folder, query, limit)
+  if (local.length === 0) return messages
+
+  const seen = new Set(messages.map((m) => m.threadId))
+  const extra = local.filter((m) => !seen.has(m.threadId))
+  if (extra.length === 0) return messages
+
+  return [...messages, ...extra].sort((a, b) => b.date - a.date)
 }
 
 /* ------------------------------------------------------------------ */

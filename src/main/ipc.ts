@@ -169,17 +169,31 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
 
   handle('mail:list', async (query: ListQuery): Promise<ListResult> => {
     const result = await providerFor(query.accountId).list(query)
-    if (getSettings().cacheEnabled) {
-      const key = cache.listKey(query)
-      if (query.pageToken) cache.appendList(query.accountId, key, result.messages)
-      else cache.saveList(query.accountId, key, result.messages)
-      cache.learnContacts(
-        query.accountId,
-        result.messages,
-        accounts.getMailAccount(query.accountId).email
-      )
-    }
-    return result
+    if (!getSettings().cacheEnabled) return result
+
+    const key = cache.listKey(query)
+    if (query.pageToken) cache.appendList(query.accountId, key, result.messages)
+    else cache.saveList(query.accountId, key, result.messages)
+    cache.learnContacts(
+      query.accountId,
+      result.messages,
+      accounts.getMailAccount(query.accountId).email
+    )
+
+    // Provider search indexes match whole words; the cache matches word
+    // prefixes. On the first page of a search, show the union rather than
+    // making the user finish typing a word the server insists on.
+    const search = query.search?.trim()
+    if (!search || query.pageToken) return result
+    const messages = cache.withCachedMatches(
+      query.accountId,
+      query.folder,
+      search,
+      result.messages,
+      query.limit ?? 60
+    )
+    if (messages.length !== result.messages.length) cache.saveList(query.accountId, key, messages)
+    return { ...result, messages }
   })
 
   /** Instant, network-free answer used to paint before the sync lands. */

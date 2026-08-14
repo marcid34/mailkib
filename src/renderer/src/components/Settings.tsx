@@ -280,7 +280,9 @@ export function Settings({
                     <span className="search-help__key">All mailboxes</span>
                     <span>
                       Every folder of every account you have added. Results are merged newest
-                      first and each row is tagged with the mailbox it came from.
+                      first and each row is tagged with the mailbox it came from. This stop only
+                      appears once you have more than one account — with one, it would repeat the
+                      step before it.
                     </span>
                   </li>
                 </ul>
@@ -349,9 +351,13 @@ export function Settings({
                 <div className="title">How results arrive</div>
                 <div className="sub">
                   Matches from the local cache paint immediately, then the provider&apos;s answer
-                  replaces them — which is why a search can gain rows a moment after you stop
-                  typing. An all-mailbox search shows the freshest matches per account rather than
-                  paging; narrow it with an operator to dig further back.
+                  arrives and the two are merged — which is why a search can gain rows a moment
+                  after you stop typing. The merge matters: Gmail and Graph only match whole words,
+                  while the cache matches the start of one, so <code>vox</code> finds Voxtelesys in
+                  mail MailKib has already seen even though the server would want the whole word.
+                  Mail older than the cache still needs the full word. An all-mailbox search shows
+                  the freshest matches per account rather than paging; narrow it with an operator to
+                  dig further back.
                 </div>
               </div>
             </div>

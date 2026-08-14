@@ -1,4 +1,14 @@
 import type { MailFolder } from '../../../shared/types'
+import { detokenize, tokenize } from '../../../shared/search'
+
+// The grammar lives in shared/ so the cache in the main process parses a query
+// exactly the way the box that typed it does.
+export {
+  detokenize,
+  highlightTerms,
+  tokenize,
+  type SearchToken
+} from '../../../shared/search'
 
 /**
  * How wide the search box casts. Tab walks these in order, starting narrow:
@@ -9,88 +19,19 @@ export type SearchScope = 'folder' | 'mailbox' | 'everywhere'
 
 export const SEARCH_SCOPES: SearchScope[] = ['folder', 'mailbox', 'everywhere']
 
-/** Step through the scopes, wrapping at both ends. */
-export function cycleScope(scope: SearchScope, step = 1): SearchScope {
-  const at = SEARCH_SCOPES.indexOf(scope)
-  return SEARCH_SCOPES[(at + step + SEARCH_SCOPES.length) % SEARCH_SCOPES.length]
-}
-
-export interface SearchToken {
-  /** The raw text as it appears in the query, e.g. `from:mira` or `"status update"`. */
-  raw: string
-  /** Operator name when the token is scoped, e.g. `from`. */
-  operator?: string
-  /** The value without the operator or surrounding quotes. */
-  value: string
-  /** True when the user wrapped it in quotes. */
-  phrase: boolean
-}
-
-const OPERATORS = [
-  'from',
-  'to',
-  'cc',
-  'subject',
-  'label',
-  'in',
-  'has',
-  'is',
-  'before',
-  'after',
-  'older_than',
-  'newer_than',
-  'filename'
-]
-
 /**
- * Split a query the way a mail search bar should: whitespace separates terms,
- * quotes hold a phrase together, and `op:value` stays attached to its operator.
+ * Step through the scopes, wrapping at both ends. `available` lets a single
+ * account drop the third stop, which would otherwise repeat the second.
  */
-export function tokenize(query: string): SearchToken[] {
-  const tokens: SearchToken[] = []
-  let current = ''
-  let quoted = false
-
-  const push = (): void => {
-    const raw = current.trim()
-    current = ''
-    if (!raw) return
-    const match = raw.match(/^([a-zA-Z_]+):(.*)$/)
-    if (match && OPERATORS.includes(match[1].toLowerCase())) {
-      const value = match[2].replace(/^"(.*)"$/, '$1')
-      tokens.push({ raw, operator: match[1].toLowerCase(), value, phrase: /^".*"$/.test(match[2]) })
-      return
-    }
-    const phrase = /^".*"$/.test(raw)
-    tokens.push({ raw, value: raw.replace(/^"(.*)"$/, '$1'), phrase })
-  }
-
-  for (const ch of query) {
-    if (ch === '"') {
-      quoted = !quoted
-      current += ch
-      continue
-    }
-    if (/\s/.test(ch) && !quoted) {
-      push()
-      continue
-    }
-    current += ch
-  }
-  push()
-  return tokens
-}
-
-export function detokenize(tokens: SearchToken[]): string {
-  return tokens.map((t) => t.raw).join(' ')
-}
-
-/** Terms that should be highlighted in the result rows. */
-export function highlightTerms(tokens: SearchToken[]): string[] {
-  return tokens
-    .filter((t) => !t.operator || ['from', 'to', 'cc', 'subject'].includes(t.operator))
-    .map((t) => t.value.trim())
-    .filter((v) => v.length > 1)
+export function cycleScope(
+  scope: SearchScope,
+  step = 1,
+  available: SearchScope[] = SEARCH_SCOPES
+): SearchScope {
+  const scopes = available.length > 0 ? available : SEARCH_SCOPES
+  const at = scopes.indexOf(scope)
+  if (at < 0) return scopes[0]
+  return scopes[(at + step + scopes.length) % scopes.length]
 }
 
 export interface Suggestion {

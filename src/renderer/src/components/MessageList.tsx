@@ -94,10 +94,20 @@ export function MessageList({
     [accounts]
   )
 
+  // With a single account "this mailbox" and "all mailboxes" are the same
+  // search, and offering both only makes Tab look broken.
   const scopeOptions: { scope: SearchScope; label: string; title: string }[] = [
     { scope: 'folder', label: `In ${folderName}`, title: `Search only ${folderName}` },
     { scope: 'mailbox', label: 'This mailbox', title: `Search every folder in ${accountEmail}` },
-    { scope: 'everywhere', label: 'All mailboxes', title: 'Search every folder in every account' }
+    ...(accounts.length > 1
+      ? [
+          {
+            scope: 'everywhere' as SearchScope,
+            label: 'All mailboxes',
+            title: 'Search every folder in every account'
+          }
+        ]
+      : [])
   ]
 
   const placeholder =
