@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type JSX } from 'react'
 import type { MailAccount, MessageFull, ThreadView } from '../../../shared/types'
 import { api, call } from '../lib/api'
 import { colorFor, displayName, formatBytes, fullTime, initials } from '../lib/format'
+import { textToHtml } from '../lib/plaintext'
 import { useSettings } from '../lib/settings-context'
 import { useToast } from '../lib/toast'
 import { EmailFrame, hasRemoteImages } from './EmailFrame'
@@ -45,7 +46,7 @@ function MessageBody({
   const { settings } = useSettings()
   const [override, setOverride] = useState<boolean | null>(null)
   const html = useMemo(
-    () => message.html || `<pre>${escapeText(message.text ?? '')}</pre>`,
+    () => message.html || textToHtml(message.text ?? ''),
     [message.html, message.text]
   )
   const remote = useMemo(() => hasRemoteImages(html), [html])
@@ -100,10 +101,6 @@ function MessageBody({
       )}
     </div>
   )
-}
-
-function escapeText(s: string): string {
-  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)
 }
 
 export function Reader({

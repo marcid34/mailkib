@@ -7,21 +7,67 @@ import { ContextMenu, useContextMenu, type MenuItem } from './ContextMenu'
 
 import type { ThemeColors } from '../lib/themes'
 
-const baseStyle = (c: ThemeColors): string => `
+/**
+ * The frame is a separate document, so it inherits none of the app's CSS -- and
+ * it had been carrying its own `system-ui`-first stack. On Linux that is the
+ * stack that sends bare ASCII digits (and the space) to Noto Color Emoji, which
+ * covers 0-9 for keycap sequences: numbers come out as wide, uniform-width emoji
+ * glyphs wedged between normal letters, and the whole message reads as spaced
+ * out and unformatted. Take the families from the theme, which already leads
+ * with a concrete text family for exactly this reason, so the two cannot drift.
+ */
+interface Fonts {
+  text: string
+  mono: string
+}
+
+function fontStacks(): Fonts {
+  const root = getComputedStyle(document.documentElement)
+  const read = (name: string, fallback: string): string =>
+    root.getPropertyValue(name).trim() || fallback
+  return {
+    text: read(
+      '--font',
+      'Inter, "Adwaita Sans", Cantarell, "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif'
+    ),
+    mono: read('--mono', '"JetBrains Mono", "DejaVu Sans Mono", monospace')
+  }
+}
+
+/**
+ * Reading styles for a message that arrived as plain text and was rebuilt into
+ * paragraphs. Scoped to the wrapper so HTML mail, which brings its own layout,
+ * is left exactly as the sender wrote it.
+ */
+const textStyle = (mono: string): string => `
+  .mk-text { max-width: 68ch; }
+  .mk-text p { margin: 0 0 0.85em; }
+  .mk-text p:last-child { margin-bottom: 0; }
+  .mk-text blockquote p:last-child { margin-bottom: 0; }
+  .mk-text .mk-pre {
+    margin: 0 0 0.85em;
+    font-family: ${mono};
+    font-size: 0.92em;
+    white-space: pre-wrap;
+  }
+`
+
+const baseStyle = (c: ThemeColors, font: Fonts): string => `
   html { color-scheme: dark; overflow-y: hidden; }
   body {
     margin: 0;
     overflow-x: auto;
     background: transparent;
     color: ${c.fg};
-    font: 13.5px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 13.5px/1.6 ${font.text};
+    font-variant-numeric: proportional-nums;
     word-break: break-word;
     overflow-wrap: anywhere;
   }
   a { color: ${c.accent}; }
   img { max-width: 100%; height: auto; border: 0; }
   table { max-width: 100%; border-collapse: collapse; }
-  pre { white-space: pre-wrap; font-family: ui-monospace, monospace; }
+  pre { white-space: pre-wrap; font-family: ${font.mono}; }
   blockquote {
     margin: 8px 0;
     padding-left: 12px;
@@ -29,6 +75,7 @@ const baseStyle = (c: ThemeColors): string => `
     color: ${c.fgMute};
   }
   hr { border: none; border-top: 1px solid ${c.border}; }
+  ${textStyle(font.mono)}
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: ${c.borderStrong}; border-radius: 6px; }
 `
@@ -39,14 +86,15 @@ const baseStyle = (c: ThemeColors): string => `
  * dark-on-dark text and patchwork white blocks wherever they *did* set one. So
  * designed messages get a real white sheet, exactly like every other mail client.
  */
-const LIGHT_STYLE = `
+const lightStyle = (font: Fonts): string => `
   html { color-scheme: light; overflow-y: hidden; }
   body {
     margin: 0;
     overflow-x: auto;
     background: #ffffff;
     color: #1c1c22;
-    font: 13.5px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 13.5px/1.6 ${font.text};
+    font-variant-numeric: proportional-nums;
     word-break: break-word;
     overflow-wrap: anywhere;
   }
@@ -60,6 +108,7 @@ const LIGHT_STYLE = `
     color: #55555f;
   }
   hr { border: none; border-top: 1px solid #e2e2e8; }
+  ${textStyle(font.mono)}
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-thumb { background: #c9c9d2; border-radius: 6px; }
 `
@@ -107,7 +156,8 @@ function buildDocument(
   allowRemote: boolean,
   trusted: boolean,
   light: boolean,
-  colors: ThemeColors
+  colors: ThemeColors,
+  font: Fonts
 ): string {
   // `style` is not in DOMPurify's default allowlist, but HTML email leans on it
   // heavily -- without it most newsletters render as unstyled text. Allowing it
@@ -124,7 +174,7 @@ function buildDocument(
   const imgSrc = allowRemote ? 'data: blob: https: http:' : 'data: blob:'
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src ${imgSrc}; media-src ${imgSrc}; font-src data:; frame-src 'none'; form-action 'none'">
-<style>${light ? LIGHT_STYLE : baseStyle(colors)}</style></head><body>${clean}</body></html>`
+<style>${light ? lightStyle(font) : baseStyle(colors, font)}</style></head><body>${clean}</body></html>`
 }
 
 /**
@@ -154,7 +204,7 @@ export function EmailFrame({
   const { open: openMenu, close: closeMenu } = menu
   const light = resolveSurface(surface, html) === 'light'
   const doc = useMemo(
-    () => buildDocument(html, allowRemote, trusted, light, theme.colors),
+    () => buildDocument(html, allowRemote, trusted, light, theme.colors, fontStacks()),
     [html, allowRemote, trusted, light, theme]
   )
 
