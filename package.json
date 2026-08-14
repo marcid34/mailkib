@@ -1,7 +1,7 @@
 {
   "name": "mailkib",
   "productName": "MailKib",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A fast, keyboard-first mail client. Tokyo Night and friends.",
   "main": "./out/main/index.js",
   "author": "kib",
