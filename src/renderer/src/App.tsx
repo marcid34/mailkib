@@ -96,20 +96,32 @@ export function App(): JSX.Element {
 
   const onShellKey = useCallback(
     (event: KeyboardEvent): boolean | void => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return
       if (modalOpen()) return
 
-      if (event.key === '0') {
-        event.preventDefault()
-        goHub()
-        return true
-      }
-      if (event.key === '\\') {
+      // Backslash sits in a different place on every keyboard layout, and on
+      // several it needs AltGr -- which this handler deliberately refuses. So
+      // match the physical key as well as the character, and take ctrl+shift+N
+      // as a plain-letter alias that any layout can type.
+      const wantsPanel =
+        event.key === '\\' ||
+        event.code === 'Backslash' ||
+        (event.shiftKey && event.key.toLowerCase() === 'n')
+      if (wantsPanel) {
         event.preventDefault()
         setPanelOpen((v) => !v)
         return true
       }
-      const index = Number(event.key)
+      if (event.shiftKey) return
+
+      // Digits likewise: `code` is the row of number keys wherever they land.
+      const digit = event.code.match(/^Digit(\d)$/)?.[1] ?? event.key
+      if (digit === '0') {
+        event.preventDefault()
+        goHub()
+        return true
+      }
+      const index = Number(digit)
       if (index >= 1 && index <= MODULES.length) {
         const target = MODULES[index - 1]
         if (!target.ready) return

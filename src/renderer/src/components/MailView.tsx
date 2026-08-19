@@ -1267,6 +1267,10 @@ export function MailView({
           <span className="kbd">ctrl</span>
           <span className="kbd">k</span> commands
         </span>
+        <span className="pair">
+          <span className="kbd">ctrl</span>
+          <span className="kbd">\</span> notes
+        </span>
         <div style={{ flex: 1 }} />
         <span>{account.email}</span>
       </div>
