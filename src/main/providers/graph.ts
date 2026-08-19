@@ -11,7 +11,8 @@ import type {
   ThreadView
 } from '../../shared/types'
 import { isLabelFolder, providerIdOf, toFolderId } from '../../shared/folders'
-import { htmlToText, pooled, textToHtml } from '../mime'
+import { cidRefs, htmlToText, normalizeCid, pooled, replaceCidRefs, textToHtml } from '../mime'
+import type { OutgoingFile } from '../staging'
 import { apiFetch, apiJson } from './session'
 import type { AttachmentData, MailProvider, MessageRef } from './types'
 
@@ -19,6 +20,10 @@ const BASE = 'https://graph.microsoft.com/v1.0/me'
 const PAGE_SIZE = 50
 const INLINE_BUDGET = 8 * 1024 * 1024
 const INLINE_MAX_PART = 3 * 1024 * 1024
+/** Graph caps a whole request at 4 MB; anything larger needs an upload session. */
+const DIRECT_ATTACHMENT_LIMIT = 3 * 1024 * 1024
+/** Upload chunks must be a multiple of 320 KiB. */
+const UPLOAD_CHUNK = 320 * 1024 * 10
 
 const LIST_SELECT =
   'id,conversationId,receivedDateTime,sentDateTime,subject,bodyPreview,isRead,isDraft,hasAttachments,flag,from,sender,toRecipients,ccRecipients'
@@ -64,6 +69,7 @@ interface GraphMessage {
 }
 
 interface GraphAttachment {
+  '@odata.type'?: string
   id: string
   name?: string
   contentType?: string
@@ -263,8 +269,15 @@ export class GraphProvider implements MailProvider {
       if (m.hasAttachments) {
         const list = await apiJson<{ value?: GraphAttachment[] }>(
           this.accountId,
-          `${BASE}/messages/${m.id}/attachments?$select=id,name,contentType,size,isInline,contentId`
+          `${BASE}/messages/${m.id}/attachments` +
+            '?$select=id,name,contentType,size,isInline,contentId'
         ).catch(() => ({ value: [] as GraphAttachment[] }))
+
+        // Match on the ids the body actually references rather than on a literal
+        // `cid:` substring: Outlook brackets and percent-encodes them freely, and
+        // a plain substring also lets one id swallow the start of another.
+        const wanted = new Set(cidRefs(html))
+        const resolved = new Map<string, string>()
 
         for (const a of list.value ?? []) {
           const attachment: Attachment = {
@@ -274,22 +287,26 @@ export class GraphProvider implements MailProvider {
             size: a.size ?? 0,
             cid: a.contentId ?? undefined
           }
-          const inlineRef = a.contentId && html.includes(`cid:${a.contentId}`)
-          if (inlineRef && attachment.size <= INLINE_MAX_PART && attachment.size <= budget) {
-            try {
-              const data = await this.attachment(m.id, a.id)
-              budget -= attachment.size
-              html = html.replaceAll(
-                `cid:${a.contentId}`,
-                `data:${attachment.mimeType};base64,${data.data}`
-              )
-              continue
-            } catch {
-              /* fall through and list it as a normal attachment */
+          const key = a.contentId ? normalizeCid(a.contentId) : ''
+          const isFile = !a['@odata.type'] || a['@odata.type'].endsWith('fileAttachment')
+          if (key && wanted.has(key) && isFile) {
+            if (attachment.size <= INLINE_MAX_PART && attachment.size <= budget) {
+              try {
+                const data = await this.attachment(m.id, a.id)
+                budget -= attachment.size
+                resolved.set(key, `data:${attachment.mimeType};base64,${data.data}`)
+                continue
+              } catch {
+                /* fall through and list it as a normal attachment */
+              }
             }
           }
-          if (!a.isInline) attachments.push(attachment)
+          // Everything we did not embed stays reachable, inline flag or not --
+          // an image the reader cannot see should at least be downloadable.
+          attachments.push(attachment)
         }
+
+        html = replaceCidRefs(html, (cid) => resolved.get(cid))
       }
 
       return {
@@ -399,7 +416,76 @@ export class GraphProvider implements MailProvider {
     return match ? providerIdOf(match.id as `label:${string}`) : undefined
   }
 
-  async send(draft: DraftPayload): Promise<void> {
+  /** Hang one file off a draft, taking the chunked path when it is too big to post. */
+  private async addAttachment(messageId: string, file: OutgoingFile): Promise<void> {
+    if (file.content.length <= DIRECT_ATTACHMENT_LIMIT) {
+      await apiFetch(this.accountId, `${BASE}/messages/${messageId}/attachments`, {
+        method: 'POST',
+        body: JSON.stringify({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: file.filename,
+          contentType: file.mimeType || 'application/octet-stream',
+          isInline: Boolean(file.cid),
+          ...(file.cid ? { contentId: file.cid } : {}),
+          contentBytes: file.content.toString('base64')
+        })
+      })
+      return
+    }
+
+    const session = await apiJson<{ uploadUrl: string }>(
+      this.accountId,
+      `${BASE}/messages/${messageId}/attachments/createUploadSession`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          AttachmentItem: {
+            attachmentType: 'file',
+            name: file.filename,
+            size: file.content.length,
+            contentType: file.mimeType || 'application/octet-stream',
+            isInline: Boolean(file.cid),
+            ...(file.cid ? { contentId: file.cid } : {})
+          }
+        })
+      }
+    )
+
+    // The upload URL carries its own credentials in the query string, so it must
+    // be called without our Authorization header.
+    const total = file.content.length
+    for (let start = 0; start < total; start += UPLOAD_CHUNK) {
+      const end = Math.min(start + UPLOAD_CHUNK, total) - 1
+      // Content-Length is set from the body; naming it here as well is a
+      // forbidden header in fetch and would be dropped or fought over.
+      const res = await fetch(session.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Range': `bytes ${start}-${end}/${total}` },
+        body: file.content.subarray(start, end + 1)
+      })
+      if (!res.ok) {
+        throw new Error(`Uploading "${file.filename}" failed (${res.status}).`)
+      }
+    }
+  }
+
+  /**
+   * Attach every file to a saved draft and send it. A draft left half-built in
+   * the mailbox reads like a message that went out, so tear it down on failure.
+   */
+  private async attachAndSend(messageId: string, files: OutgoingFile[]): Promise<void> {
+    try {
+      for (const file of files) await this.addAttachment(messageId, file)
+    } catch (error) {
+      await apiFetch(this.accountId, `${BASE}/messages/${messageId}`, {
+        method: 'DELETE'
+      }).catch(() => undefined)
+      throw error
+    }
+    await apiFetch(this.accountId, `${BASE}/messages/${messageId}/send`, { method: 'POST' })
+  }
+
+  async send(draft: DraftPayload, files: OutgoingFile[] = []): Promise<void> {
     const message = {
       subject: draft.subject,
       body: { contentType: 'HTML', content: draft.body },
@@ -419,14 +505,25 @@ export class GraphProvider implements MailProvider {
         method: 'PATCH',
         body: JSON.stringify(message)
       })
-      await apiFetch(this.accountId, `${BASE}/messages/${created.id}/send`, { method: 'POST' })
+      await this.attachAndSend(created.id, files)
       return
     }
 
-    await apiFetch(this.accountId, `${BASE}/sendMail`, {
+    if (files.length === 0) {
+      await apiFetch(this.accountId, `${BASE}/sendMail`, {
+        method: 'POST',
+        body: JSON.stringify({ message, saveToSentItems: true })
+      })
+      return
+    }
+
+    // sendMail is one request, and Graph caps a request at 4 MB. Files have to
+    // hang off a saved draft so each one can be uploaded on its own.
+    const created = await apiJson<{ id: string }>(this.accountId, `${BASE}/messages`, {
       method: 'POST',
-      body: JSON.stringify({ message, saveToSentItems: true })
+      body: JSON.stringify(message)
     })
+    await this.attachAndSend(created.id, files)
   }
 
   async attachment(messageId: string, attachmentId: string): Promise<AttachmentData> {
@@ -434,10 +531,15 @@ export class GraphProvider implements MailProvider {
       this.accountId,
       `${BASE}/messages/${messageId}/attachments/${attachmentId}`
     )
+    // Only fileAttachment carries bytes. A linked file or an embedded item has
+    // no contentBytes, and silently writing an empty file is worse than saying so.
+    if (!a.contentBytes) {
+      throw new Error(`"${a.name ?? 'That attachment'}" is a link or an embedded item, not a file.`)
+    }
     return {
       filename: a.name ?? 'attachment',
       mimeType: a.contentType ?? 'application/octet-stream',
-      data: a.contentBytes ?? ''
+      data: a.contentBytes
     }
   }
 }

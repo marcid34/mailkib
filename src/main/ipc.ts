@@ -3,6 +3,7 @@ import path from 'node:path'
 import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
 import type {
   AppUser,
+  DraftAttachment,
   DraftPayload,
   ListQuery,
   ListResult,
@@ -16,6 +17,13 @@ import type {
 } from '../shared/types'
 import * as accounts from './accounts'
 import * as cache from './cache'
+import {
+  MAX_ATTACHMENT_BYTES,
+  releaseAttachments,
+  resolveAttachments,
+  stageBuffer,
+  stagePath
+} from './staging'
 import { getSettings, setSettings } from './settings'
 import { keyStorageBackend } from './crypto'
 import { authorize, cancelOAuth } from './oauth'
@@ -350,9 +358,67 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return true
   })
 
+  /** Total encoded size a provider will take; base64 inflates the files by a third. */
+  const MAX_MESSAGE_BYTES = 24 * 1024 * 1024
+
   handle('mail:send', async (draft: DraftPayload) => {
     if (!draft.to.length) throw new Error('Add at least one recipient.')
-    await providerFor(draft.accountId).send(draft)
+    const files = resolveAttachments(draft.attachments)
+    const total = files.reduce((sum, f) => sum + f.content.length, 0)
+    if (total > MAX_MESSAGE_BYTES) {
+      throw new Error(
+        `Those attachments come to ${Math.round(total / 1024 / 1024)} MB. ` +
+          'Mail providers reject anything over about 25 MB.'
+      )
+    }
+    await providerFor(draft.accountId).send(draft, files)
+    releaseAttachments((draft.attachments ?? []).map((a) => a.token))
+    return true
+  })
+
+  /* --------------------------- outgoing files --------------------------- */
+
+  handle('mail:pickAttachments', async (): Promise<DraftAttachment[]> => {
+    const win = getWindow()
+    const picked = await dialog.showOpenDialog(win!, {
+      title: 'Attach files',
+      buttonLabel: 'Attach',
+      properties: ['openFile', 'multiSelections', 'dontAddToRecent']
+    })
+    if (picked.canceled) return []
+    return picked.filePaths.map(stagePath)
+  })
+
+  /** Files dropped onto the compose window, which arrive as paths from the renderer. */
+  handle('mail:stagePaths', (paths: string[]): DraftAttachment[] =>
+    paths.filter(Boolean).map(stagePath)
+  )
+
+  /** Carry an attachment from a message being forwarded into the new draft. */
+  handle(
+    'mail:stageFromMessage',
+    async (p: {
+      accountId: string
+      messageId: string
+      attachmentId: string
+      filename: string
+      mimeType?: string
+      size?: number
+    }): Promise<DraftAttachment> => {
+      if ((p.size ?? 0) > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`"${p.filename}" is too large to forward.`)
+      }
+      const data = await providerFor(p.accountId).attachment(p.messageId, p.attachmentId)
+      return stageBuffer(
+        Buffer.from(data.data, 'base64'),
+        p.filename || data.filename || 'attachment',
+        p.mimeType || data.mimeType
+      )
+    }
+  )
+
+  handle('mail:releaseAttachments', (tokens: string[]) => {
+    releaseAttachments(tokens ?? [])
     return true
   })
 

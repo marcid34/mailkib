@@ -708,9 +708,36 @@ export function MailView({
         }
       }
       if (!source) return
+      const init = buildReply(mode, source)
+
+      // A forward that quietly drops the files is worse than a slow one, so
+      // stage them before the window opens. One that cannot be copied is
+      // reported and the rest still come along.
+      if (mode === 'forward' && source.attachments.length > 0) {
+        const message = source
+        const staged = await Promise.all(
+          message.attachments.map((attachment) =>
+            call(
+              api.mail.stageFromMessage({
+                accountId: message.accountId,
+                messageId: message.id,
+                attachmentId: attachment.id,
+                filename: attachment.filename,
+                mimeType: attachment.mimeType,
+                size: attachment.size
+              })
+            ).catch((error: unknown) => {
+              fail(error)
+              return null
+            })
+          )
+        )
+        init.attachments = staged.filter((a) => a !== null)
+      }
+
       // Reply from the mailbox that holds the message, not the selected one.
       setComposeAccountId(source.accountId)
-      setCompose(buildReply(mode, source))
+      setCompose(init)
     },
     [thread, currentSummary, accountFor, buildReply, fail]
   )

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import type { DraftPayload, Recipient } from '../shared/types'
+import type { OutgoingFile } from './staging'
 
 const CRLF = '\r\n'
 
@@ -72,6 +73,51 @@ export function parseAddress(header?: string): Recipient {
   return parseAddressList(header)[0] ?? { email: '' }
 }
 
+/* ------------------------------ content-ids ------------------------------ */
+
+/**
+ * Normalise a content-id for matching. Senders bracket, quote, percent-encode
+ * and case them however they like, so compare on a single canonical form rather
+ * than on the literal text of the reference.
+ */
+export function normalizeCid(raw: string): string {
+  let value = raw.trim()
+  if (value.includes('%')) {
+    try {
+      value = decodeURIComponent(value)
+    } catch {
+      /* not percent-encoding after all; match on what was written */
+    }
+  }
+  return value.replace(/^[<"']+|[>"']+$/g, '').trim().toLowerCase()
+}
+
+/**
+ * Rewrite every `cid:` reference in `html` through `lookup`, leaving the ones it
+ * does not recognise untouched. Tokenising each reference is what keeps
+ * `cid:image1` from also eating the start of `cid:image10`.
+ */
+export function replaceCidRefs(
+  html: string,
+  lookup: (cid: string) => string | undefined
+): string {
+  return html.replace(/\bcid:(<[^<>"'\s]*>|[^"'\s>)\]}\\]*)/gi, (match, ref: string) => {
+    const id = ref.replace(/[.,;:!]+$/, '')
+    const url = lookup(normalizeCid(id))
+    return url === undefined ? match : url + ref.slice(id.length)
+  })
+}
+
+/** Every distinct content-id the body actually references. */
+export function cidRefs(html: string): string[] {
+  const found = new Set<string>()
+  replaceCidRefs(html, (cid) => {
+    if (cid) found.add(cid)
+    return undefined
+  })
+  return [...found]
+}
+
 /* ------------------------------ encoding ------------------------------ */
 
 function needsEncoding(s: string): boolean {
@@ -130,9 +176,61 @@ export function makeMessageId(domain: string): string {
   return `<${randomBytes(12).toString('hex')}.${Date.now()}@${domain || 'mailkib.local'}>`
 }
 
-/** Build an RFC 5322 message: multipart/alternative with a text and html part. */
-export function buildMime(draft: DraftPayload, from: Recipient): { raw: string; messageId: string } {
-  const boundary = `--=_mk_${randomBytes(12).toString('hex')}`
+/** RFC 5987, for the `filename*` parameter that carries non-ASCII names intact. */
+function encodeExtendedValue(s: string): string {
+  return encodeURIComponent(s).replace(/['()!*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+}
+
+/**
+ * Name a file for a header parameter. Every client understands the quoted ASCII
+ * form, so send that as the fallback and add RFC 2231's `filename*` alongside it
+ * whenever the real name needs more than ASCII.
+ */
+function filenameParams(key: string, name: string): string {
+  const safe = name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_') || 'attachment'
+  const base = `${key}="${safe}"`
+  return needsEncoding(name) ? `${base}; ${key}*=UTF-8''${encodeExtendedValue(name)}` : base
+}
+
+function boundary(): string {
+  return `--=_mk_${randomBytes(12).toString('hex')}`
+}
+
+function filePart(file: OutgoingFile): string[] {
+  const inline = Boolean(file.cid)
+  const lines = [
+    `Content-Type: ${file.mimeType || 'application/octet-stream'}; ${filenameParams('name', file.filename)}`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: ${inline ? 'inline' : 'attachment'}; ${filenameParams('filename', file.filename)}`
+  ]
+  if (inline) lines.push(`Content-ID: <${file.cid}>`)
+  lines.push('', (file.content.toString('base64').match(/.{1,76}/g) ?? []).join(CRLF))
+  return lines
+}
+
+/** Wrap a set of already-built body parts in one multipart container. */
+function multipart(subtype: string, parts: string[][], extra = ''): string[] {
+  const mark = boundary()
+  const lines = [`Content-Type: multipart/${subtype}; boundary="${mark}"${extra}`, '']
+  for (const part of parts) lines.push(`--${mark}`, ...part)
+  lines.push(`--${mark}--`)
+  return lines
+}
+
+/**
+ * Build an RFC 5322 message.
+ *
+ * The body is always a multipart/alternative of text and html. Files the body
+ * references inline wrap that in a multipart/related, and ordinary attachments
+ * wrap whatever came out of that in a multipart/mixed -- the nesting every mail
+ * client expects, and the reason an attached file shows up as an attachment
+ * rather than as a second copy of the message.
+ */
+export function buildMime(
+  draft: DraftPayload,
+  from: Recipient,
+  files: OutgoingFile[] = []
+): { raw: string; messageId: string } {
   const messageId = makeMessageId(from.email.split('@')[1] ?? '')
   const text = draft.text?.trim() || htmlToText(draft.body)
 
@@ -148,25 +246,23 @@ export function buildMime(draft: DraftPayload, from: Recipient): { raw: string; 
   if (draft.inReplyTo) headers.push(`In-Reply-To: ${draft.inReplyTo}`)
   if (draft.references) headers.push(`References: ${draft.references}`)
   headers.push('MIME-Version: 1.0')
-  headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`)
 
-  const raw = [
-    headers.join(CRLF),
-    '',
-    `--${boundary}`,
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: base64',
-    '',
-    base64Body(text),
-    `--${boundary}`,
-    'Content-Type: text/html; charset="UTF-8"',
-    'Content-Transfer-Encoding: base64',
-    '',
-    base64Body(draft.body),
-    `--${boundary}--`,
-    ''
-  ].join(CRLF)
+  let body = multipart('alternative', [
+    ['Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', base64Body(text)],
+    ['Content-Type: text/html; charset="UTF-8"', 'Content-Transfer-Encoding: base64', '', base64Body(draft.body)]
+  ])
 
+  const inline = files.filter((f) => f.cid)
+  const attached = files.filter((f) => !f.cid)
+  if (inline.length > 0) {
+    body = multipart('related', [body, ...inline.map(filePart)], '; type="multipart/alternative"')
+  }
+  if (attached.length > 0) {
+    body = multipart('mixed', [body, ...attached.map(filePart)])
+  }
+
+  // The outermost container's own Content-Type belongs in the message headers.
+  const raw = [...headers, ...body, ''].join(CRLF)
   return { raw, messageId }
 }
 

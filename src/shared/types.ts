@@ -121,6 +121,21 @@ export interface ListQuery {
   limit?: number
 }
 
+/**
+ * A file staged for sending. The bytes live in the main process; the renderer
+ * only ever holds this descriptor, so a draft can carry a 20 MB attachment
+ * without any of it crossing the IPC boundary until the message is sent.
+ */
+export interface DraftAttachment {
+  /** Opaque handle into the main-process staging table. */
+  token: string
+  filename: string
+  mimeType: string
+  size: number
+  /** content-id, when the file is referenced from the body as `cid:` */
+  cid?: string
+}
+
 export interface DraftPayload {
   accountId: string
   to: Recipient[]
@@ -135,6 +150,7 @@ export interface DraftPayload {
   threadId?: string
   /** Provider message id being replied to (Microsoft Graph threads replies through it). */
   replySourceId?: string
+  attachments?: DraftAttachment[]
 }
 
 export interface OAuthRequest {

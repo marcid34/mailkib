@@ -123,9 +123,66 @@ interface FrameTarget {
   bodyText: string
 }
 
+/**
+ * Does the message pull anything off the network to render? The `//host/path`
+ * form counts: it is a remote image with the scheme left implicit, and missing
+ * it meant the reader silently showed a message with holes in it instead of
+ * offering to unblock the images.
+ */
 export function hasRemoteImages(html: string): boolean {
-  return /<img[^>]+src=["']?https?:/i.test(html) || /background(-image)?\s*:\s*url\(['"]?https?:/i.test(html)
+  if (!html) return false
+  return (
+    /<(?:img|source)\b[^>]*\b(?:src|srcset)\s*=\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
+    /\burl\(\s*["']?\s*(?:https?:)?\/\//i.test(html) ||
+    /<[^>]+\sbackground\s*=\s*["']?\s*(?:https?:)?\/\//i.test(html)
+  )
 }
+
+/**
+ * A protocol-relative URL resolves against the frame's own base, which in a
+ * packaged build is a `file://` path -- so `//cdn.example/logo.png` turns into
+ * `file://cdn.example/logo.png` and simply never loads. Senders write them all
+ * the same, so pin them to https rather than leave a hole in the message.
+ */
+const PROTOCOL_RELATIVE = /^\s*\/\//
+
+function absolute(url: string): string {
+  return PROTOCOL_RELATIVE.test(url) ? `https:${url.trim()}` : url
+}
+
+function absoluteCss(css: string): string {
+  return css.replace(/url\(\s*(['"]?)\/\//gi, 'url($1https://')
+}
+
+const URL_ATTRIBUTES = ['src', 'poster', 'background']
+
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  const element = node as Element
+  if (element.nodeType !== 1) return
+
+  for (const name of URL_ATTRIBUTES) {
+    const value = element.getAttribute(name)
+    if (value && PROTOCOL_RELATIVE.test(value)) element.setAttribute(name, absolute(value))
+  }
+
+  const srcset = element.getAttribute('srcset')
+  if (srcset?.includes('//')) {
+    element.setAttribute(
+      'srcset',
+      srcset
+        .split(',')
+        .map((candidate) => absolute(candidate.trim()))
+        .join(', ')
+    )
+  }
+
+  const style = element.getAttribute('style')
+  if (style?.includes('//')) element.setAttribute('style', absoluteCss(style))
+
+  if (element.tagName === 'STYLE' && element.textContent?.includes('//')) {
+    element.textContent = absoluteCss(element.textContent)
+  }
+})
 
 /**
  * Does this message carry its own design? Two or more signals, so a plain reply
@@ -162,13 +219,21 @@ function buildDocument(
   // `style` is not in DOMPurify's default allowlist, but HTML email leans on it
   // heavily -- without it most newsletters render as unstyled text. Allowing it
   // is safe here because the frame runs no scripts and carries its own CSP.
+  // `srcset` stays in for the same reason: blocking it hid every image that
+  // ships only a responsive set, and it can reach nothing `src` could not.
+  //
+  // FORCE_BODY is what makes allowing `style` mean anything. A message that
+  // opens with a <style> block -- which is nearly every newsletter -- has it
+  // parsed into <head>, and the sanitiser returns only <body>: the rules were
+  // being dropped wholesale, taking every CSS background image with them.
   const clean = trusted
     ? html
     : DOMPurify.sanitize(html, {
+        FORCE_BODY: true,
         ADD_TAGS: ['style'],
         ADD_ATTR: ['style', 'target', 'bgcolor', 'align', 'valign', 'width', 'height'],
         FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'base', 'link', 'meta'],
-        FORBID_ATTR: ['ping', 'formaction', 'srcset'],
+        FORBID_ATTR: ['ping', 'formaction'],
         ALLOW_DATA_ATTR: false
       })
   const imgSrc = allowRemote ? 'data: blob: https: http:' : 'data: blob:'

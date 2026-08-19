@@ -5,6 +5,7 @@ import type {
   MailFolder,
   ThreadView
 } from '../../shared/types'
+import type { OutgoingFile } from '../staging'
 
 /** A message row plus its conversation, so providers can act at whichever level they support. */
 export interface MessageRef {
@@ -38,7 +39,7 @@ export interface MailProvider {
   createFolder(name: string, parentPath?: string): Promise<MailFolder>
   renameFolder(folderId: string, name: string, parentPath?: string): Promise<void>
   deleteFolder(folderId: string): Promise<void>
-  send(draft: DraftPayload): Promise<void>
+  send(draft: DraftPayload, files: OutgoingFile[]): Promise<void>
   attachment(messageId: string, attachmentId: string): Promise<AttachmentData>
   unreadCounts(): Promise<Partial<Record<string, number>>>
 }

@@ -188,6 +188,7 @@ MailKib is built to be driven without the mouse.
 | `c` | compose |
 | `r` / `a` / `f` | reply / reply all / forward |
 | `ctrl+↵` | send |
+| `ctrl+shift+a` | attach files (in compose) |
 | `/` | search |
 | `ctrl+k` | command palette |
 | `ctrl+r` | refresh |
@@ -357,13 +358,14 @@ message; that is how tracking pixels work.
 Gmail (fully) and Microsoft Graph (same feature set, less field-tested). Multiple accounts,
 labels and folders including nesting/create/rename/delete, threaded reading, search with
 operators and highlighting, an offline cache, a learned address book with autocomplete,
-Markdown/HTML/plain compose with live preview, reply/reply-all/forward, star, archive, trash,
-mark unread, drag-and-drop filing, context menus, attachment download and open, undo for
-archive, a command palette, ten themes, and the keyboard map above.
+Markdown/HTML/plain compose with live preview, attachments in and out (pick or drop files to
+send, and a forward carries the original's files along), reply/reply-all/forward, star,
+archive, trash, mark unread, drag-and-drop filing, context menus, attachment download and
+open, undo for archive, a command palette, ten themes, and the keyboard map above.
 
 ## Not yet
 
-Local draft saving (compose is send-or-discard), attaching files to outgoing mail, a WYSIWYG
+Local draft saving (compose is send-or-discard), inline images in the composer, a WYSIWYG
 composer, notifications, and signatures.
 
 Also not yet: **IMAP/SMTP with an app password** as an alternative to OAuth. For a personal

@@ -4,6 +4,7 @@ import type {
   CacheStats,
   Contact,
   AppUser,
+  DraftAttachment,
   AuthState,
   DesktopStatus,
   DraftPayload,
@@ -28,6 +29,8 @@ export interface AttachmentRequest {
   messageId: string
   attachmentId: string
   filename: string
+  mimeType?: string
+  size?: number
 }
 
 /** The full surface the preload bridge exposes as `window.mailkib`. */
@@ -39,6 +42,8 @@ export interface MailkibApi {
     setSettings: (patch: Partial<AppSettings>) => Promise<Result<AppSettings>>
     installDesktopEntry: () => Promise<Result<DesktopStatus>>
     openExternal: (url: string) => Promise<Result<boolean>>
+    /** Absolute path of a dropped file, or null when the drop carried no real file. */
+    pathForFile: (file: File) => string | null
     onWindowState: (cb: (state: { maximized: boolean }) => void) => () => void
   }
   auth: {
@@ -97,5 +102,13 @@ export interface MailkibApi {
     send: (draft: DraftPayload) => Promise<Result<boolean>>
     saveAttachment: (p: AttachmentRequest) => Promise<Result<string | null>>
     openAttachment: (p: AttachmentRequest) => Promise<Result<string>>
+    /** Opens a file dialog; the chosen files are staged for the next send. */
+    pickAttachments: () => Promise<Result<DraftAttachment[]>>
+    /** Stage files dropped onto the window. */
+    stagePaths: (paths: string[]) => Promise<Result<DraftAttachment[]>>
+    /** Carry a received attachment into a draft, for forwarding. */
+    stageFromMessage: (p: AttachmentRequest) => Promise<Result<DraftAttachment>>
+    /** Discard staged files a draft no longer needs. */
+    releaseAttachments: (tokens: string[]) => Promise<Result<boolean>>
   }
 }

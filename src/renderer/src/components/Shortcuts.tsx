@@ -44,6 +44,7 @@ const GROUPS: { title: string; rows: [string, string[]][] }[] = [
       ['Reply all', ['a']],
       ['Forward', ['f']],
       ['Send', ['ctrl', '↵']],
+      ['Attach files', ['ctrl', 'shift', 'a']],
       ['Close / cancel', ['esc']]
     ]
   }

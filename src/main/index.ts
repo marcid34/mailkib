@@ -4,6 +4,7 @@ import { BrowserWindow, app, session, shell } from 'electron'
 import { registerIpc } from './ipc'
 import { appImagePath, installDesktopEntry } from './desktop'
 import { readJson, writeJson } from './store'
+import { releaseAll } from './staging'
 
 app.setName('MailKib')
 app.setAppUserModelId('dev.kib.mailkib')
@@ -111,17 +112,23 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   void app.whenReady().then(() => {
-    // `img-src https:` looks permissive, but the app UI never loads remote
-    // images -- it is there so a message frame can opt in to showing them, and
-    // each frame carries its own stricter CSP until the reader unblocks it.
+    // The image sources look permissive, but the app UI never loads a remote
+    // image: they are here so a message frame can opt in to showing them. A
+    // srcdoc frame inherits this policy on top of its own, so whatever is
+    // missing here is blocked in the reader no matter what the frame allows --
+    // which is why plain `http:` belongs in the list too. Plenty of senders
+    // still host their images without TLS, and until this said so those
+    // messages came up blank in packaged builds while working fine in dev.
     if (!isDev) {
+      const remote = "data: blob: https: http:"
       session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
         callback({
           responseHeaders: {
             ...details.responseHeaders,
             'Content-Security-Policy': [
               "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-                "img-src 'self' data: blob: https:; font-src 'self' data:; " +
+                `img-src 'self' ${remote}; media-src 'self' ${remote}; ` +
+                "font-src 'self' data:; " +
                 "connect-src 'self'; frame-src 'self' data: blob:; object-src 'none'; " +
                 "base-uri 'none'; form-action 'none'"
             ]
@@ -148,6 +155,10 @@ if (!app.requestSingleInstanceLock()) {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow()
     })
   })
+
+  // Files copied out of a message to be forwarded live in the temp directory
+  // until they are sent; nothing should outlive the session that staged them.
+  app.on('will-quit', releaseAll)
 
   app.on('window-all-closed', () => app.quit())
 }

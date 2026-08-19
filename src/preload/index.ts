@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   AppInfo,
   AppSettings,
@@ -7,6 +7,7 @@ import type {
   AppUser,
   AuthState,
   DesktopStatus,
+  DraftAttachment,
   DraftPayload,
   ListQuery,
   ListResult,
@@ -30,6 +31,13 @@ const api: MailkibApi = {
     setSettings: (patch: Partial<AppSettings>) => invoke<AppSettings>('app:setSettings', patch),
     installDesktopEntry: () => invoke<DesktopStatus>('app:installDesktopEntry'),
     openExternal: (url: string) => invoke<boolean>('app:openExternal', url),
+    pathForFile: (file: File) => {
+      try {
+        return webUtils.getPathForFile(file) || null
+      } catch {
+        return null
+      }
+    },
     onWindowState: (cb: (state: { maximized: boolean }) => void) => {
       const listener = (_e: unknown, state: { maximized: boolean }): void => cb(state)
       ipcRenderer.on('window:state', listener)
@@ -91,7 +99,11 @@ const api: MailkibApi = {
       invoke<boolean>('mail:act', { accountId, refs, action }),
     send: (draft: DraftPayload) => invoke<boolean>('mail:send', draft),
     saveAttachment: (p: AttachmentRequest) => invoke<string | null>('mail:saveAttachment', p),
-    openAttachment: (p: AttachmentRequest) => invoke<string>('mail:openAttachment', p)
+    openAttachment: (p: AttachmentRequest) => invoke<string>('mail:openAttachment', p),
+    pickAttachments: () => invoke<DraftAttachment[]>('mail:pickAttachments'),
+    stagePaths: (paths: string[]) => invoke<DraftAttachment[]>('mail:stagePaths', paths),
+    stageFromMessage: (p: AttachmentRequest) => invoke<DraftAttachment>('mail:stageFromMessage', p),
+    releaseAttachments: (tokens: string[]) => invoke<boolean>('mail:releaseAttachments', tokens)
   }
 }
 
