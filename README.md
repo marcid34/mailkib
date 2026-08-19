@@ -189,6 +189,9 @@ MailKib is built to be driven without the mouse.
 | `r` / `a` / `f` | reply / reply all / forward |
 | `ctrl+↵` | send |
 | `ctrl+shift+a` | attach files (in compose) |
+| `ctrl+0` | the hub |
+| `ctrl+1`…`ctrl+5` | jump to a module |
+| `ctrl+\` | toggle the notes panel |
 | `/` | search |
 | `ctrl+k` | command palette |
 | `ctrl+r` | refresh |
@@ -353,6 +356,34 @@ message; that is how tracking pixels work.
 
 ---
 
+## The hub
+
+Kib opens on a hub: **Mail**, **Notes**, and three doors — Vault, Health, Planner — that are
+drawn but not built. Mail and Notes are real. A rail down the left switches between them
+without going back to the hub, `ctrl+1`…`ctrl+5` does the same from the keyboard, and `ctrl+0`
+returns to the front door.
+
+Mail is no longer required: you can use Kib for notes alone and never connect a mailbox.
+
+## Notes
+
+Notes are per-user, encrypted at rest with the same device key as the mail cache, and stored
+as an index plus one file per body — so typing rewrites one small file rather than everything
+you have written. Three formats:
+
+- **Plain** — shown exactly as typed.
+- **Markdown** — rendered into the app's own theme rather than onto a white sheet.
+- **HTML** — a whole little web page. CSS and JavaScript both run.
+
+That last one is the interesting one. HTML notes are served from a `kibnote://` scheme with an
+origin of their own, so a note runs its own scripts without inheriting or weakening the policy
+that protects the window holding your mail tokens. The frame is sandboxed without
+`allow-same-origin`, so a note cannot reach the app, and its own policy forbids every kind of
+outbound connection — `fetch`, `XMLHttpRequest` and WebSocket are all refused. Images over
+https are allowed, since the note is something you wrote.
+
+`ctrl+\` opens a notes panel beside whatever else you are doing, including a mail thread.
+
 ## What works
 
 Gmail (fully) and Microsoft Graph (same feature set, less field-tested). Multiple accounts,
@@ -367,7 +398,12 @@ the keyboard map above.
 ## Not yet
 
 Local draft saving (compose is send-or-discard), inline images in the composer, a WYSIWYG
-composer, notifications, and signatures.
+composer, notifications, and signatures. Notes have no sync, history or export yet, and
+cannot be linked to a thread.
+
+Vault, Health and Planner are hub tiles and nothing more. Vault in particular will need a
+password-derived key and a real locked/unlocked session — the device key that protects mail
+and notes is not enough for a password manager.
 
 Also not yet: **IMAP/SMTP with an app password** as an alternative to OAuth. For a personal
 client this is arguably the better transport — no Google verification, no test-user list, and

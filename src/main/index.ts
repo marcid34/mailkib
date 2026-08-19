@@ -5,9 +5,17 @@ import { registerIpc } from './ipc'
 import { appImagePath, installDesktopEntry } from './desktop'
 import { readJson, writeJson } from './store'
 import { releaseAll } from './staging'
+import { flushNotes } from './notes'
+import { handleNoteScheme, registerNoteScheme } from './noteprotocol'
 
+// The application name decides where userData lives, so it is a storage key
+// with a friendly face. The product is Kib now; this string stays MailKib so
+// every existing account, vault, cache and note keeps being found.
 app.setName('MailKib')
 app.setAppUserModelId('dev.kib.mailkib')
+
+// Privileged schemes have to be declared before the app is ready.
+registerNoteScheme()
 
 const isDev = !app.isPackaged
 const RENDERER_URL = process.env['ELECTRON_RENDERER_URL']
@@ -129,7 +137,7 @@ if (!app.requestSingleInstanceLock()) {
               "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
                 `img-src 'self' ${remote}; media-src 'self' ${remote}; ` +
                 "font-src 'self' data:; " +
-                "connect-src 'self'; frame-src 'self' data: blob:; object-src 'none'; " +
+                "connect-src 'self'; frame-src 'self' data: blob: kibnote:; object-src 'none'; " +
                 "base-uri 'none'; form-action 'none'"
             ]
           }
@@ -137,6 +145,7 @@ if (!app.requestSingleInstanceLock()) {
       })
     }
 
+    handleNoteScheme()
     registerIpc(() => mainWindow)
 
     // Running from an AppImage there is no installer, so put ourselves in the
@@ -158,7 +167,12 @@ if (!app.requestSingleInstanceLock()) {
 
   // Files copied out of a message to be forwarded live in the temp directory
   // until they are sent; nothing should outlive the session that staged them.
-  app.on('will-quit', releaseAll)
+  app.on('will-quit', () => {
+    releaseAll()
+    // Note writes are coalesced, so a quit inside the window would drop the
+    // last few seconds of typing.
+    flushNotes()
+  })
 
   app.on('window-all-closed', () => app.quit())
 }

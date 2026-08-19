@@ -16,6 +16,7 @@ import type {
   Result,
   ThreadView
 } from './types'
+import type { Note, NotePatch, NoteSummary } from './notes'
 
 export type MailAction = 'read' | 'unread' | 'star' | 'unstar' | 'archive' | 'inbox' | 'trash'
 
@@ -120,5 +121,13 @@ export interface MailkibApi {
     stageFromMessage: (p: AttachmentRequest) => Promise<Result<DraftAttachment>>
     /** Discard staged files a draft no longer needs. */
     releaseAttachments: (tokens: string[]) => Promise<Result<boolean>>
+  }
+  notes: {
+    list: () => Promise<Result<NoteSummary[]>>
+    search: (query: string) => Promise<Result<NoteSummary[]>>
+    get: (id: string) => Promise<Result<Note | null>>
+    create: (patch?: NotePatch) => Promise<Result<Note>>
+    update: (id: string, patch: NotePatch) => Promise<Result<Note>>
+    remove: (id: string) => Promise<Result<boolean>>
   }
 }

@@ -48,8 +48,11 @@
   --mono: "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
   --titlebar-h: 38px;
+  --rail-w: 44px;
   --sidebar-w: 224px;
   --list-w: 400px;
+  --notelist-w: 292px;
+  --notespanel-w: 340px;
 
   color-scheme: dark;
 }

@@ -133,6 +133,57 @@ export const IconFile = (p: IconProps): JSX.Element => (
   </Svg>
 )
 
+export const IconNote = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M4 5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+    <path d="M15 3v5h5" />
+    <path d="M8.5 12.5h7M8.5 16h4.5" />
+  </Svg>
+)
+
+export const IconLock = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="4" y="10.5" width="16" height="10.5" rx="2" />
+    <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+  </Svg>
+)
+
+export const IconHeart = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M20.3 5.7a5 5 0 0 0-7.1 0L12 6.9l-1.2-1.2a5 5 0 1 0-7.1 7.1l8.3 8.3 8.3-8.3a5 5 0 0 0 0-7.1z" />
+  </Svg>
+)
+
+export const IconCalendar = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="3.5" y="5" width="17" height="16" rx="2" />
+    <path d="M3.5 10h17M8 3v4M16 3v4" />
+  </Svg>
+)
+
+export const IconGrid = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" />
+    <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
+    <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
+    <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
+  </Svg>
+)
+
+export const IconPin = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M9 3h6l-1 6 3.5 3.5H6.5L10 9z" />
+    <path d="M12 12.5V21" />
+  </Svg>
+)
+
+export const IconPanel = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2" />
+    <path d="M14.5 4.5v15" />
+  </Svg>
+)
+
 export const IconX = (p: IconProps): JSX.Element => (
   <Svg {...p} strokeWidth={2}>
     <path d="M18 6 6 18M6 6l12 12" />

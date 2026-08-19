@@ -24,6 +24,7 @@ import type {
   MailkibApi,
   MessageRef
 } from '../shared/api'
+import type { Note, NotePatch, NoteSummary } from '../shared/notes'
 
 function invoke<T>(channel: string, payload?: unknown): Promise<Result<T>> {
   return ipcRenderer.invoke(channel, payload) as Promise<Result<T>>
@@ -111,6 +112,14 @@ const api: MailkibApi = {
     stagePaths: (paths: string[]) => invoke<DraftAttachment[]>('mail:stagePaths', paths),
     stageFromMessage: (p: AttachmentRequest) => invoke<DraftAttachment>('mail:stageFromMessage', p),
     releaseAttachments: (tokens: string[]) => invoke<boolean>('mail:releaseAttachments', tokens)
+  },
+  notes: {
+    list: () => invoke<NoteSummary[]>('notes:list'),
+    search: (query: string) => invoke<NoteSummary[]>('notes:search', { query }),
+    get: (id: string) => invoke<Note | null>('notes:get', { id }),
+    create: (patch?: NotePatch) => invoke<Note>('notes:create', { patch }),
+    update: (id: string, patch: NotePatch) => invoke<Note>('notes:update', { id, patch }),
+    remove: (id: string) => invoke<boolean>('notes:delete', { id })
   }
 }
 

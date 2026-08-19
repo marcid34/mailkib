@@ -37,6 +37,28 @@ const GROUPS: { title: string; rows: [string, string[]][] }[] = [
     ]
   },
   {
+    title: 'Kib',
+    rows: [
+      ['Hub', ['ctrl', '0']],
+      ['Mail / Notes / …', ['ctrl', '1', '–', '5']],
+      ['Notes panel', ['ctrl', '\\']],
+      ['Commands', ['ctrl', 'k']]
+    ]
+  },
+  {
+    title: 'Notes',
+    rows: [
+      ['New note', ['c']],
+      ['Move', ['j', 'k']],
+      ['Open', ['↵']],
+      ['Search notes', ['/']],
+      ['Edit / preview', ['ctrl', 'e']],
+      ['Save now', ['ctrl', 's']],
+      ['Pin', ['shift', 'p']],
+      ['Delete note', ['#']]
+    ]
+  },
+  {
     title: 'Write',
     rows: [
       ['Compose', ['c']],

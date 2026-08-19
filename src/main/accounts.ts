@@ -128,7 +128,7 @@ function vaultName(userId: string): string {
   return `vault-${userId}.enc`
 }
 
-function requireUser(): AppUser {
+export function requireUser(): AppUser {
   const me = currentUser()
   if (!me) throw new Error('Not signed in.')
   return me

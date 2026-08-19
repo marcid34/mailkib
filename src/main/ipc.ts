@@ -15,8 +15,10 @@ import type {
   OAuthRequest,
   ThreadView
 } from '../shared/types'
+import type { Note, NotePatch, NoteSummary } from '../shared/notes'
 import * as accounts from './accounts'
 import * as cache from './cache'
+import * as notes from './notes'
 import {
   MAX_ATTACHMENT_BYTES,
   releaseAttachments,
@@ -429,6 +431,25 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
    * saving or opening the file still works at any size.
    */
   const MAX_PREVIEW_BYTES = 25 * 1024 * 1024
+
+  /* -------------------------------- notes ------------------------------- */
+
+  handle('notes:list', (): NoteSummary[] => notes.listNotes())
+
+  handle('notes:search', (p: { query: string }): NoteSummary[] => notes.searchNotes(p.query))
+
+  handle('notes:get', (p: { id: string }): Note | null => notes.getNote(p.id))
+
+  handle('notes:create', (p: { patch?: NotePatch }): Note => notes.createNote(p.patch ?? {}))
+
+  handle('notes:update', (p: { id: string; patch: NotePatch }): Note =>
+    notes.updateNote(p.id, p.patch)
+  )
+
+  handle('notes:delete', (p: { id: string }) => {
+    notes.deleteNote(p.id)
+    return true
+  })
 
   handle(
     'mail:readAttachment',

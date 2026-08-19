@@ -32,6 +32,7 @@ import {
 import { useToast } from '../lib/toast'
 import { isLabelFolder, providerIdOf } from '../../../shared/folders'
 import { AddressBook } from './AddressBook'
+import { isTyping, useKeyScope, useModalScope } from '../lib/keymap'
 import { Compose, type ComposeInit } from './Compose'
 import { CommandPalette, type Command } from './CommandPalette'
 import { ContextMenu, useContextMenu, type MenuItem } from './ContextMenu'
@@ -63,6 +64,8 @@ interface Props {
   user: AppUser
   info: AppInfo | null
   accounts: MailAccount[]
+  /** Hub and module-switching commands, merged into this module's palette. */
+  moduleCommands: Command[]
   onAccountsChanged: () => void
   onAddAccount: () => void
   onLogout: () => void
@@ -81,6 +84,7 @@ export function MailView({
   user,
   info,
   accounts,
+  moduleCommands,
   onAccountsChanged,
   onAddAccount,
   onLogout
@@ -940,12 +944,14 @@ export function MailView({
     Boolean(prompt) ||
     Boolean(menu.state)
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent): void {
-      const target = event.target as HTMLElement | null
-      const typing =
-        !!target &&
-        (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable === true)
+  // Two modules share this window, so keys go through the registry rather than
+  // straight onto `window`: whichever scope mounted last is asked first, and
+  // this one stands down entirely while one of its own dialogs is open.
+  useModalScope(overlayOpen)
+
+  const onKey = useCallback(
+    (event: KeyboardEvent): void => {
+      const typing = isTyping(event)
 
       const mod = event.ctrlKey || event.metaKey
 
@@ -1066,11 +1072,8 @@ export function MailView({
           return
         default:
       }
-    }
-
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [
+    },
+    [
     overlayOpen,
     messages.length,
     cursor,
@@ -1085,7 +1088,10 @@ export function MailView({
     load,
     loadCounts,
     loadLabels
-  ])
+    ]
+  )
+
+  useKeyScope('mail', onKey)
 
   /* ------------------------------- commands ------------------------------ */
 
@@ -1149,6 +1155,7 @@ export function MailView({
       { id: 'shortcuts', group: 'App', label: 'Keyboard shortcuts', keys: ['?'], run: () => setShortcutsOpen(true) },
       { id: 'logout', group: 'App', label: 'Sign out', run: onLogout }
     )
+    list.push(...moduleCommands)
     return list
   }, [
     currentSummary,
@@ -1163,7 +1170,8 @@ export function MailView({
     toggleStar,
     startReply,
     onAddAccount,
-    onLogout
+    onLogout,
+    moduleCommands
   ])
 
   if (!account) return <div className="centered">No account selected.</div>
