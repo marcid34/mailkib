@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState, type JSX } from 'react'
-import type { MailAccount, MessageFull, ThreadView } from '../../../shared/types'
+import type { Attachment, MailAccount, MessageFull, ThreadView } from '../../../shared/types'
 import { api, call } from '../lib/api'
 import { colorFor, displayName, formatBytes, fullTime, initials } from '../lib/format'
 import { textToHtml } from '../lib/plaintext'
 import { useSettings } from '../lib/settings-context'
 import { useToast } from '../lib/toast'
+import { AttachmentPreview } from './AttachmentPreview'
 import { EmailFrame, hasRemoteImages } from './EmailFrame'
 import {
   IconArchive,
   IconArrowLeft,
+  IconDownload,
   IconEye,
   IconForward,
   IconMailOpen,
@@ -45,6 +47,7 @@ function MessageBody({
   const { fail, notify } = useToast()
   const { settings } = useSettings()
   const [override, setOverride] = useState<boolean | null>(null)
+  const [previewing, setPreviewing] = useState<Attachment | null>(null)
   const html = useMemo(
     () => message.html || textToHtml(message.text ?? ''),
     [message.html, message.text]
@@ -54,15 +57,19 @@ function MessageBody({
 
   useEffect(() => setOverride(null), [message.id])
 
-  async function download(attachmentId: string, filename: string, open: boolean): Promise<void> {
+  async function save(attachment: Attachment): Promise<void> {
     try {
-      const payload = { accountId: account.id, messageId: message.id, attachmentId, filename }
-      if (open) {
-        await call(api.mail.openAttachment(payload))
-      } else {
-        const saved = await call(api.mail.saveAttachment(payload))
-        if (saved) notify(`Saved to ${saved}`, 'ok')
-      }
+      const saved = await call(
+        api.mail.saveAttachment({
+          accountId: account.id,
+          messageId: message.id,
+          attachmentId: attachment.id,
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
+          size: attachment.size
+        })
+      )
+      if (saved) notify(`Saved to ${saved}`, 'ok')
     } catch (error) {
       fail(error)
     }
@@ -82,22 +89,42 @@ function MessageBody({
       {message.attachments.length > 0 && (
         <div className="attachments">
           {message.attachments.map((attachment) => (
-            <button
-              key={attachment.id}
-              className="attachment"
-              title={`${attachment.filename} — click to open, right-click to save`}
-              onClick={() => void download(attachment.id, attachment.filename, true)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                void download(attachment.id, attachment.filename, false)
-              }}
-            >
-              <IconPaperclip size={13} />
-              <span className="attachment__name">{attachment.filename}</span>
-              <span className="attachment__size">{formatBytes(attachment.size)}</span>
-            </button>
+            <span key={attachment.id} className="attachment">
+              <button
+                className="attachment__open"
+                title={`Preview ${attachment.filename}`}
+                onClick={() => setPreviewing(attachment)}
+              >
+                <IconPaperclip size={13} />
+                <span className="attachment__name">{attachment.filename}</span>
+                <span className="attachment__size">{formatBytes(attachment.size)}</span>
+              </button>
+              <button
+                className="attachment__action"
+                title={`Preview ${attachment.filename}`}
+                onClick={() => setPreviewing(attachment)}
+              >
+                <IconEye size={13} />
+              </button>
+              <button
+                className="attachment__action"
+                title={`Download ${attachment.filename}`}
+                onClick={() => void save(attachment)}
+              >
+                <IconDownload size={13} />
+              </button>
+            </span>
           ))}
         </div>
+      )}
+
+      {previewing && (
+        <AttachmentPreview
+          account={account}
+          messageId={message.id}
+          attachment={previewing}
+          onClose={() => setPreviewing(null)}
+        />
       )}
     </div>
   )

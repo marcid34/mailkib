@@ -17,7 +17,13 @@ import type {
   Result,
   ThreadView
 } from '../shared/types'
-import type { AttachmentRequest, MailAction, MailkibApi, MessageRef } from '../shared/api'
+import type {
+  AttachmentBytes,
+  AttachmentRequest,
+  MailAction,
+  MailkibApi,
+  MessageRef
+} from '../shared/api'
 
 function invoke<T>(channel: string, payload?: unknown): Promise<Result<T>> {
   return ipcRenderer.invoke(channel, payload) as Promise<Result<T>>
@@ -98,6 +104,7 @@ const api: MailkibApi = {
     act: (accountId: string, refs: MessageRef[], action: MailAction) =>
       invoke<boolean>('mail:act', { accountId, refs, action }),
     send: (draft: DraftPayload) => invoke<boolean>('mail:send', draft),
+    readAttachment: (p: AttachmentRequest) => invoke<AttachmentBytes>('mail:readAttachment', p),
     saveAttachment: (p: AttachmentRequest) => invoke<string | null>('mail:saveAttachment', p),
     openAttachment: (p: AttachmentRequest) => invoke<string>('mail:openAttachment', p),
     pickAttachments: () => invoke<DraftAttachment[]>('mail:pickAttachments'),

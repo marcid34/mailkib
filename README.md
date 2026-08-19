@@ -360,8 +360,9 @@ labels and folders including nesting/create/rename/delete, threaded reading, sea
 operators and highlighting, an offline cache, a learned address book with autocomplete,
 Markdown/HTML/plain compose with live preview, attachments in and out (pick or drop files to
 send, and a forward carries the original's files along), reply/reply-all/forward, star,
-archive, trash, mark unread, drag-and-drop filing, context menus, attachment download and
-open, undo for archive, a command palette, ten themes, and the keyboard map above.
+archive, trash, mark unread, drag-and-drop filing, context menus, attachment preview with
+per-file preview and download buttons, undo for archive, a command palette, ten themes, and
+the keyboard map above.
 
 ## Not yet
 

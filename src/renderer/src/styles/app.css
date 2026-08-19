@@ -1024,22 +1024,48 @@
   margin-top: 16px;
 }
 
+/* The chip is a container now: a name that opens the preview, then one button
+   per action. Padding lives on the children so each has a real hit area. */
 .attachment {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 11px;
+  min-width: 0;
   border-radius: var(--radius);
   background: var(--bg-deep);
   border: 1px solid var(--border);
   font-size: 12px;
   transition: border-color 0.13s, background 0.13s;
-  max-width: 260px;
+  max-width: 320px;
 }
 
 .attachment:hover {
   border-color: var(--border-strong);
   background: var(--bg-raise);
+}
+
+.attachment__open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 7px 4px 7px 11px;
+}
+
+.attachment__action {
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 7px 6px;
+  color: var(--fg-faint);
+}
+
+.attachment__action:last-child {
+  padding-right: 9px;
+}
+
+.attachment__action:hover {
+  color: var(--blue);
 }
 
 .attachment__name {
@@ -1071,7 +1097,8 @@
 }
 
 .attachment--staged {
-  padding-right: 5px;
+  gap: 8px;
+  padding: 7px 5px 7px 11px;
   cursor: default;
 }
 
@@ -2220,4 +2247,58 @@ mark.hit {
   content: '·';
   margin: 0 6px;
   color: var(--fg-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* attachment preview                                                  */
+/* ------------------------------------------------------------------ */
+
+.preview {
+  width: min(940px, 100%);
+  height: min(82vh, 100%);
+}
+
+.preview__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 18px;
+  overflow: auto;
+  background: var(--bg-sunken);
+}
+
+.preview__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+.preview__text {
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.preview__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-faint);
+  text-align: center;
 }

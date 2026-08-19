@@ -33,6 +33,14 @@ export interface AttachmentRequest {
   size?: number
 }
 
+/** An attachment's bytes, for showing it inside the app rather than handing it out. */
+export interface AttachmentBytes {
+  filename: string
+  mimeType: string
+  /** base64 */
+  data: string
+}
+
 /** The full surface the preload bridge exposes as `window.mailkib`. */
 export interface MailkibApi {
   app: {
@@ -100,6 +108,8 @@ export interface MailkibApi {
     counts: (accountId: string) => Promise<Result<Partial<Record<string, number>>>>
     act: (accountId: string, refs: MessageRef[], action: MailAction) => Promise<Result<boolean>>
     send: (draft: DraftPayload) => Promise<Result<boolean>>
+    /** Read an attachment into the renderer so it can be previewed in place. */
+    readAttachment: (p: AttachmentRequest) => Promise<Result<AttachmentBytes>>
     saveAttachment: (p: AttachmentRequest) => Promise<Result<string | null>>
     openAttachment: (p: AttachmentRequest) => Promise<Result<string>>
     /** Opens a file dialog; the chosen files are staged for the next send. */

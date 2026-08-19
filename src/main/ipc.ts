@@ -422,6 +422,41 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return true
   })
 
+  /**
+   * Hand an attachment's bytes to the renderer so it can be shown in place. The
+   * ceiling is about the IPC hop, not the file: a preview that has to serialise
+   * a hundred megabytes through the bridge is worse than no preview at all, and
+   * saving or opening the file still works at any size.
+   */
+  const MAX_PREVIEW_BYTES = 25 * 1024 * 1024
+
+  handle(
+    'mail:readAttachment',
+    async (p: {
+      accountId: string
+      messageId: string
+      attachmentId: string
+      filename: string
+      mimeType?: string
+      size?: number
+    }) => {
+      if ((p.size ?? 0) > MAX_PREVIEW_BYTES) {
+        throw new Error('That file is too large to preview — download it instead.')
+      }
+      const data = await providerFor(p.accountId).attachment(p.messageId, p.attachmentId)
+      if (data.data.length * 0.75 > MAX_PREVIEW_BYTES) {
+        throw new Error('That file is too large to preview — download it instead.')
+      }
+      return {
+        // Gmail returns bytes without a type; the part header the reader already
+        // has is the better answer, so prefer it over the fetch's guess.
+        filename: p.filename || data.filename || 'attachment',
+        mimeType: p.mimeType || data.mimeType || 'application/octet-stream',
+        data: data.data
+      }
+    }
+  )
+
   handle(
     'mail:saveAttachment',
     async (p: {

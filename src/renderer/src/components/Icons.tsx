@@ -110,6 +110,29 @@ export const IconPaperclip = (p: IconProps): JSX.Element => (
   </Svg>
 )
 
+export const IconDownload = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M12 3v12" />
+    <path d="m7 10 5 5 5-5" />
+    <path d="M4 18v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1" />
+  </Svg>
+)
+
+export const IconExternal = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M14 4h6v6" />
+    <path d="M20 4 11 13" />
+    <path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+  </Svg>
+)
+
+export const IconFile = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5" />
+  </Svg>
+)
+
 export const IconX = (p: IconProps): JSX.Element => (
   <Svg {...p} strokeWidth={2}>
     <path d="M18 6 6 18M6 6l12 12" />
