@@ -60,6 +60,15 @@ const GROUPS: { title: string; rows: [string, string[]][] }[] = [
     ]
   },
   {
+    title: 'Code editor',
+    rows: [
+      ['Indent / dedent', ['tab']],
+      ['Force completion', ['ctrl', 'space']],
+      ['Undo / redo', ['ctrl', 'z']],
+      ['Select line', ['ctrl', 'l']]
+    ]
+  },
+  {
     title: 'Write',
     rows: [
       ['Compose', ['c']],

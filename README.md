@@ -375,6 +375,12 @@ you have written. Three formats:
 - **Markdown** — rendered into the app's own theme rather than onto a white sheet.
 - **HTML** — a whole little web page. CSS and JavaScript both run.
 
+HTML notes open in a real code editor rather than a textarea: syntax highlighting that follows
+whichever of the ten themes you are using, completion for tags, attributes and CSS properties,
+auto-indent, tab to indent a line or a selection, and brackets and tags that close themselves.
+The same editor backs **HTML compose** in mail, so a hand-written message gets the same
+treatment — with the live preview beside it.
+
 That last one is the interesting one. HTML notes are served from a `kibnote://` scheme with an
 origin of their own, so a note runs its own scripts without inheriting or weakening the policy
 that protects the window holding your mail tokens. The frame is sandboxed without

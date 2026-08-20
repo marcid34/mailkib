@@ -4,6 +4,7 @@ import { api, call } from '../lib/api'
 import { relativeTime } from '../lib/format'
 import { isTyping, useKeyScope, useModalScope } from '../lib/keymap'
 import { useToast } from '../lib/toast'
+import { CodeEditor, focusCodeEditor } from './CodeEditor'
 import { CommandPalette, type Command } from './CommandPalette'
 import { NoteBody } from './NoteBody'
 import { Shortcuts } from './Shortcuts'
@@ -50,10 +51,17 @@ export function NotesView({ moduleCommands, onOpenSettings }: Props): JSX.Elemen
 
   const searchRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const editorHost = useRef<HTMLDivElement>(null)
   const saveTimer = useRef<number | undefined>(undefined)
 
   const overlayOpen = paletteOpen || shortcutsOpen
   useModalScope(overlayOpen)
+
+  /** An HTML note has no textarea to focus; reach into the code editor instead. */
+  const focusBody = useCallback(() => {
+    if (bodyRef.current) bodyRef.current.focus()
+    else focusCodeEditor(editorHost.current)
+  }, [])
 
   const refresh = useCallback(
     async (search?: string) => {
@@ -90,7 +98,7 @@ export function NotesView({ moduleCommands, onOpenSettings }: Props): JSX.Elemen
   /* ------------------------------- loading ------------------------------- */
 
   const open = useCallback(
-    async (id: string, focusBody = false) => {
+    async (id: string, focus = false) => {
       try {
         const note = await call(api.notes.get(id))
         if (!note) {
@@ -102,12 +110,12 @@ export function NotesView({ moduleCommands, onOpenSettings }: Props): JSX.Elemen
         setDraft(note)
         setDirty(false)
         setRevision((r) => r + 1)
-        if (focusBody) requestAnimationFrame(() => bodyRef.current?.focus())
+        if (focus) requestAnimationFrame(focusBody)
       } catch (error) {
         fail(error)
       }
     },
-    [fail, notify, refresh, query]
+    [fail, notify, refresh, query, focusBody]
   )
 
   /* -------------------------------- saving ------------------------------- */
@@ -169,12 +177,12 @@ export function NotesView({ moduleCommands, onOpenSettings }: Props): JSX.Elemen
         setDirty(false)
         setEditing(true)
         setCursor(0)
-        requestAnimationFrame(() => bodyRef.current?.focus())
+        requestAnimationFrame(focusBody)
       } catch (error) {
         fail(error)
       }
     },
-    [flush, fail]
+    [flush, fail, focusBody]
   )
 
   const remove = useCallback(
@@ -531,19 +539,29 @@ export function NotesView({ moduleCommands, onOpenSettings }: Props): JSX.Elemen
               </div>
 
               {editing ? (
-                <div className="notepane__editor">
-                  <textarea
-                    ref={bodyRef}
-                    value={draft.body}
-                    spellCheck={draft.format !== 'html'}
-                    placeholder={
-                      draft.format === 'html'
-                        ? '<h1>Hello</h1>\n<style>…</style>\n<script>…</script>'
-                        : 'Write…'
-                    }
-                    onChange={(e) => edit({ body: e.target.value })}
-                    onBlur={() => void flush()}
-                  />
+                <div
+                  ref={editorHost}
+                  className={`notepane__editor${draft.format === 'html' ? ' is-code' : ''}`}
+                >
+                  {draft.format === 'html' ? (
+                    <CodeEditor
+                      key={draft.id}
+                      value={draft.body}
+                      language="html"
+                      placeholder={'<h1>Hello</h1>\n<style>…</style>\n<script>…</script>'}
+                      onChange={(body) => edit({ body })}
+                      onBlur={() => void flush()}
+                    />
+                  ) : (
+                    <textarea
+                      ref={bodyRef}
+                      value={draft.body}
+                      spellCheck
+                      placeholder="Write…"
+                      onChange={(e) => edit({ body: e.target.value })}
+                      onBlur={() => void flush()}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="notepane__preview">

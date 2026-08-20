@@ -2946,3 +2946,57 @@ mark.hit {
   font-size: 11px;
   color: var(--fg-faint);
 }
+
+/* ------------------------------------------------------------------ */
+/* code editor (HTML notes, HTML compose)                              */
+/* ------------------------------------------------------------------ */
+
+.codeeditor {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.codeeditor > .cm-editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The editor brings its own padding and scroller, so the frame around it
+   should not add a second one. */
+.notepane__editor.is-code {
+  padding: 0;
+}
+
+.notepane__editor.is-code .cm-gutters {
+  padding-left: 6px;
+}
+
+.compose__code {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 200px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
+}
+
+.compose__code:focus-within {
+  border-color: var(--accent-line);
+}
+
+.compose__body.is-code {
+  display: flex;
+  overflow: hidden;
+}
+
+.compose__body.is-code.is-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 14px;
+}

@@ -4,6 +4,7 @@ import { api, call } from '../lib/api'
 import { formatBytes, isValidEmail, parseRecipients } from '../lib/format'
 import { FORMAT_HINTS, toHtml, toPlain, type BodyFormat } from '../lib/compose-format'
 import { useToast } from '../lib/toast'
+import { CodeEditor } from './CodeEditor'
 import { EmailFrame } from './EmailFrame'
 import { RecipientField } from './RecipientField'
 import { IconCode, IconEye, IconMarkdown, IconPaperclip, IconSend, IconText, IconX } from './Icons'
@@ -314,17 +315,30 @@ export function Compose({ account, init, onClose, onSent }: Props): JSX.Element 
           </button>
         </div>
 
-        <div className={`compose__body${preview ? ' is-split' : ''}`}>
+        <div
+          className={`compose__body${preview ? ' is-split' : ''}${
+            format === 'html' ? ' is-code' : ''
+          }`}
+        >
           {dragging && <div className="compose__drop">Drop files to attach</div>}
-          <textarea
-            ref={bodyRef}
-            value={body}
-            spellCheck
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={
-              format === 'html' ? '<p>Write HTML…</p>' : 'Write your message…'
-            }
-          />
+          {format === 'html' ? (
+            <div className="compose__code">
+              <CodeEditor
+                value={body}
+                language="html"
+                placeholder={'<p>Write HTML…</p>\n<style>…</style>'}
+                onChange={setBody}
+              />
+            </div>
+          ) : (
+            <textarea
+              ref={bodyRef}
+              value={body}
+              spellCheck
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write your message…"
+            />
+          )}
           {preview && (
             <div className="compose__preview">
               <div className="compose__preview-label">Preview</div>
