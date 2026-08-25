@@ -5,7 +5,7 @@
 # MailKib
 
 **A fast, keyboard-first desktop mail client for Linux.**
-Superhuman-shaped, dressed in Tokyo Night — and nine other themes.
+Superhuman-shaped, dressed in Tokyo Night — and sixteen other themes, light ones included.
 
 </div>
 
@@ -22,11 +22,11 @@ Two paths. Both end with MailKib in your application launcher.
 ### A. Download the AppImage
 
 Go to the [Releases page](https://github.com/marcid34/mailkib/releases), grab
-`MailKib-0.2.5-x86_64.AppImage`, then:
+`MailKib-0.6.0-x86_64.AppImage`, then:
 
 ```bash
 mkdir -p ~/Applications
-mv ~/Downloads/MailKib-0.2.5-x86_64.AppImage ~/Applications/MailKib.AppImage
+mv ~/Downloads/MailKib-0.6.0-x86_64.AppImage ~/Applications/MailKib.AppImage
 chmod +x ~/Applications/MailKib.AppImage
 ~/Applications/MailKib.AppImage
 ```
@@ -58,10 +58,10 @@ npm install
 # binary download. If node_modules/electron/dist/ is missing, run:
 node node_modules/electron/install.js
 
-npm run dist          # -> release/MailKib-0.2.5-x86_64.AppImage
+npm run dist          # -> release/MailKib-0.6.0-x86_64.AppImage
 ```
 
-Then install it as in **A**, pointing at `release/MailKib-0.2.5-x86_64.AppImage`.
+Then install it as in **A**, pointing at `release/MailKib-0.6.0-x86_64.AppImage`.
 
 `npm run dist:all` also produces `.pacman` and `.deb` packages. Those register their desktop
 entry through the package manager, so the self-registration step is skipped:
@@ -185,6 +185,10 @@ MailKib is built to be driven without the mouse.
 | `s` | star / unstar |
 | `shift+u` | mark unread |
 | `shift+i` | move to inbox |
+| `x` | tick this conversation |
+| `shift+j` / `shift+k` | extend the selection |
+| `ctrl+a` | select everything listed |
+| `esc` | clear the selection |
 | `c` | compose |
 | `r` / `a` / `f` | reply / reply all / forward |
 | `ctrl+↵` | send |
@@ -214,21 +218,62 @@ Right-click does what you would expect:
 **Drag a conversation onto a label** to file it. Inbox, Starred, Archive and Trash are drop
 targets too, and the sidebar highlights what will accept the drop while you drag.
 
+## Selecting several at once
+
+Every row has a tick box that appears when you hover it.
+
+- **shift+click** sweeps a range from wherever the cursor is to the row you clicked. Clicking
+  again with shift *redraws* that sweep, so you can pull it back in as well as push it out.
+- **ctrl+click** (or the tick box) adds and removes one row at a time, and the row it lands on
+  becomes the anchor for the next shift+click.
+- The bar above the list says how many are ticked and carries the actions: mark read, mark
+  unread, star, archive, delete. `e`, `#` and `s` do the same from the keyboard, and archiving
+  a batch is undoable from the toast.
+- **Dragging any ticked row** drags the whole selection onto a label.
+
+Selections span mailboxes — in an all-mailbox search, a batch is grouped per account and each
+provider is asked once.
+
 ---
+
+## Notifications and counts
+
+New mail is visible from wherever you are standing, not only from the folder it landed in.
+
+- Every connected mailbox is polled on a short interval, not just the one on screen.
+- **Unread counts** sit on each folder, each label, and each account chip — the account chips
+  in the account's own colour, so with several mailboxes you can tell which one woke up
+  without reading a word. The mail button in the rail carries the total across all of them.
+- **Desktop notifications** when mail arrives while the app is running. Clicking one brings
+  the window forward and opens that conversation, whichever module you were in. A burst of
+  more than three collapses into a single summary.
+- **A launcher badge** with the unread total, where the desktop supports one.
+
+All three are switchable in *Settings → Notifications*. Mail that was already sitting unread
+when you launched the app is counted but never announced.
 
 ## Themes
 
-Ten dark themes, switched instantly from **Settings → Theme**; the choice is remembered
-across restarts and applies to the message viewer as well as the app chrome.
+Seventeen themes — fourteen dark, three light — switched instantly from **Settings → Theme**.
+The choice is remembered across restarts and applies to the message viewer as well as the app
+chrome.
 
 | Family | Themes |
 |---|---|
 | Tokyo Night | Storm *(default)*, Night |
-| Catppuccin | Mocha, Macchiato, Frappé |
+| Catppuccin | Mocha, Macchiato, Frappé, Latte *(light)* |
+| Woodland | Everforest, Kanagawa |
+| Ayu | Mirage |
 | Atom | One Dark |
-| Retro | Gruvbox |
+| Retro | Gruvbox, Solarized, Solarized Light *(light)* |
 | Arctic | Nord |
-| Classic | Dracula, Rosé Pine |
+| Classic | Dracula, Rosé Pine, Dawn *(light)* |
+
+Each theme names two accents rather than one: a primary and a counterweight across the wheel
+from it. The primary marks where you are, the counterweight marks what is new — unread dots,
+count bubbles, the selection. Every tint the UI uses (soft fills, focus lines, glows) is
+derived from the live palette at runtime, so a theme is never a dark blue app wearing a
+different coat.
 
 Every colour in the UI comes from a CSS custom property, so adding another theme is one
 object in `src/renderer/src/lib/themes.ts`.
@@ -404,8 +449,8 @@ the keyboard map above.
 ## Not yet
 
 Local draft saving (compose is send-or-discard), inline images in the composer, a WYSIWYG
-composer, notifications, and signatures. Notes have no sync, history or export yet, and
-cannot be linked to a thread.
+composer, and signatures. Notes have no sync, history or export yet, and cannot be linked to
+a thread.
 
 Vault, Health and Planner are hub tiles and nothing more. Vault in particular will need a
 password-derived key and a real locked/unlocked session — the device key that protects mail

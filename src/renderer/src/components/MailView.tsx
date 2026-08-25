@@ -30,13 +30,14 @@ import {
   type SearchScope
 } from '../lib/search'
 import { useToast } from '../lib/toast'
+import { useMailWatch } from '../lib/mailwatch'
 import { isLabelFolder, providerIdOf } from '../../../shared/folders'
 import { AddressBook } from './AddressBook'
 import { isTyping, useKeyScope, useModalScope } from '../lib/keymap'
 import { Compose, type ComposeInit } from './Compose'
 import { CommandPalette, type Command } from './CommandPalette'
 import { ContextMenu, useContextMenu, type MenuItem } from './ContextMenu'
-import { MessageList } from './MessageList'
+import { MessageList, type BulkAction } from './MessageList'
 import { Prompt, type PromptSpec } from './Prompt'
 import { Reader, type ReplyMode } from './Reader'
 import { Settings } from './Settings'
@@ -66,6 +67,9 @@ interface Props {
   accounts: MailAccount[]
   /** Hub and module-switching commands, merged into this module's palette. */
   moduleCommands: Command[]
+  /** A conversation to open on arrival — set when a notification is clicked. */
+  openTarget: { accountId: string; threadId: string } | null
+  onOpened: () => void
   onAccountsChanged: () => void
   onAddAccount: () => void
   onLogout: () => void
@@ -76,6 +80,17 @@ const REFRESH_MS = 120_000
 /** Rows kept when several accounts are merged into one result list. */
 const MERGED_LIMIT = 200
 
+/** Split rows by the mailbox that owns them, so each provider gets one call. */
+function groupByAccount(list: MessageSummary[]): [string, MessageRef[]][] {
+  const groups = new Map<string, MessageRef[]>()
+  for (const message of list) {
+    const refs = groups.get(message.accountId) ?? []
+    refs.push({ id: message.id, threadId: message.threadId })
+    groups.set(message.accountId, refs)
+  }
+  return [...groups]
+}
+
 function escapeText(s: string): string {
   return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!)
 }
@@ -85,11 +100,16 @@ export function MailView({
   info,
   accounts,
   moduleCommands,
+  openTarget,
+  onOpened,
   onAccountsChanged,
   onAddAccount,
   onLogout
 }: Props): JSX.Element {
   const { notify, fail } = useToast()
+  // Counts are watched for every account, not just this one, so the sidebar and
+  // the account chips agree with the rail and with the desktop notifications.
+  const watch = useMailWatch()
 
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [folder, setFolder] = useState<FolderId>('inbox')
@@ -104,11 +124,16 @@ export function MailView({
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [pageToken, setPageToken] = useState<string | undefined>()
-  const [counts, setCounts] = useState<Partial<Record<string, number>>>({})
   const [labels, setLabels] = useState<MailFolder[]>([])
   const [labelsLoading, setLabelsLoading] = useState(false)
 
   const [cursor, setCursor] = useState(0)
+  /**
+   * Rows ticked for a bulk action, by message id. The cursor doubles as the
+   * anchor a shift-click extends from, which is why a shift-click never moves
+   * it.
+   */
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [openThreadId, setOpenThreadId] = useState<string | null>(null)
   const [thread, setThread] = useState<ThreadView | null>(null)
   const [threadLoading, setThreadLoading] = useState(false)
@@ -122,13 +147,20 @@ export function MailView({
   const [prompt, setPrompt] = useState<PromptSpec | null>(null)
   const [addressBookOpen, setAddressBookOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const dragRef = useRef<MessageRef | null>(null)
+  /** The rows currently being dragged — one, or the whole selection. */
+  const dragRef = useRef<MessageSummary[] | null>(null)
   const menu = useContextMenu()
 
   const searchRef = useRef<HTMLInputElement>(null)
   const requestId = useRef(0)
   /** The account/folder/query the rows currently on screen answer. */
   const shownFor = useRef('')
+  /**
+   * A conversation opened from a desktop notification, which arrives before the
+   * folder it lives in has finished loading. Without this, that load would close
+   * it again a second later. One load honours it, and only for a few seconds.
+   */
+  const keepOpen = useRef<{ threadId: string; at: number } | null>(null)
   const goPending = useRef(0)
 
   const account = useMemo(
@@ -253,9 +285,16 @@ export function MailView({
         setPageToken(everywhere ? undefined : results[0]?.nextPageToken)
         if (unreachable.length > 0) notify(`Could not search ${unreachable.join(', ')}`, 'error')
         if (!silent) {
-          setCursor((c) => Math.min(c, Math.max(0, merged.length - 1)))
-          setOpenThreadId(null)
-          setThread(null)
+          const pinned = keepOpen.current
+          keepOpen.current = null
+          if (pinned && Date.now() - pinned.at < 5000) {
+            const at = merged.findIndex((m) => m.threadId === pinned.threadId)
+            if (at >= 0) setCursor(at)
+          } else {
+            setCursor((c) => Math.min(c, Math.max(0, merged.length - 1)))
+            setOpenThreadId(null)
+            setThread(null)
+          }
         }
       } catch (error) {
         if (requestId.current !== id) return
@@ -272,15 +311,6 @@ export function MailView({
     },
     [account, accounts, everywhere, queryFolder, search, fail, notify]
   )
-
-  const loadCounts = useCallback(async () => {
-    if (!account) return
-    try {
-      setCounts(await call(api.mail.counts(account.id)))
-    } catch {
-      /* counts are decoration; a failure here should not shout */
-    }
-  }, [account])
 
   useEffect(() => {
     void load()
@@ -301,10 +331,6 @@ export function MailView({
   }, [account])
 
   useEffect(() => {
-    void loadCounts()
-  }, [loadCounts])
-
-  useEffect(() => {
     void loadLabels()
   }, [loadLabels])
 
@@ -312,11 +338,10 @@ export function MailView({
     const timer = setInterval(() => {
       if (document.hidden) return
       void load(true)
-      void loadCounts()
       void loadLabels()
     }, REFRESH_MS)
     return () => clearInterval(timer)
-  }, [load, loadCounts, loadLabels])
+  }, [load, loadLabels])
 
   async function loadMore(): Promise<void> {
     if (!account || !pageToken) return
@@ -387,10 +412,7 @@ export function MailView({
           setMessages((list) =>
             list.map((m) => (m.threadId === summary.threadId ? { ...m, unread: false } : m))
           )
-          // The sidebar counts belong to the selected account only.
-          if (owner.id === account?.id) {
-            setCounts((c) => ({ ...c, inbox: Math.max(0, (c.inbox ?? 1) - 1) }))
-          }
+          watch.bump(owner.id, 'inbox', -1)
           void act([{ id: summary.id, threadId: summary.threadId }], 'read', owner.id)
         }
       } catch (error) {
@@ -400,8 +422,59 @@ export function MailView({
         setThreadLoading(false)
       }
     },
-    [messages, account, accountFor, act, fail]
+    [messages, accountFor, act, fail, watch]
   )
+
+  /**
+   * Land on a conversation someone clicked a notification for. It may live in an
+   * account that is not the one on screen, and in a folder that has not been
+   * fetched yet, so the thread is asked for directly rather than found in a row.
+   */
+  useEffect(() => {
+    if (!openTarget) return
+    const owner = accounts.find((a) => a.id === openTarget.accountId)
+    if (!owner) {
+      onOpened()
+      return
+    }
+    let cancelled = false
+    keepOpen.current = { threadId: openTarget.threadId, at: Date.now() }
+    setAccountId(owner.id)
+    setFolder('inbox')
+    setSearchInput('')
+    setSearch('')
+    setOpenThreadId(openTarget.threadId)
+    setThread(null)
+    setThreadLoading(true)
+    void (async () => {
+      try {
+        const view = await call(api.mail.thread(owner.id, openTarget.threadId))
+        if (cancelled) return
+        setThread(view)
+        setMessages((list) =>
+          list.map((m) => (m.threadId === openTarget.threadId ? { ...m, unread: false } : m))
+        )
+        const last = view.messages[view.messages.length - 1]
+        if (last) {
+          await act([{ id: last.id, threadId: openTarget.threadId }], 'read', owner.id)
+          watch.refresh()
+        }
+      } catch (error) {
+        if (cancelled) return
+        fail(error)
+        setOpenThreadId(null)
+      } finally {
+        if (!cancelled) {
+          setThreadLoading(false)
+          onOpened()
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTarget])
 
   const folderName = useMemo(
     () =>
@@ -413,11 +486,95 @@ export function MailView({
 
   const currentSummary = messages[cursor]
 
-  const removeRow = useCallback(
-    (threadId: string) => {
-      setMessages((list) => list.filter((m) => m.threadId !== threadId))
-      setCursor((c) => Math.max(0, Math.min(c, messages.length - 2)))
-      if (openThreadId === threadId) {
+  /* ------------------------------ selection ------------------------------ */
+
+  /** The ticked rows, in the order they appear on screen. */
+  const picked = useMemo(
+    () => (selected.size === 0 ? [] : messages.filter((m) => selected.has(m.id))),
+    [messages, selected]
+  )
+
+  /** The sweep the last shift-click made, so the next one can redraw it. */
+  const lastRange = useRef<{ from: number; to: number; anchor: number } | null>(null)
+
+  const clearPicks = useCallback(() => {
+    lastRange.current = null
+    setSelected((current) => (current.size === 0 ? current : new Set()))
+  }, [])
+
+  // A tick belongs to a row that is on screen. Rows that get archived, paged
+  // away or filtered out by a search take their ticks with them.
+  useEffect(() => {
+    setSelected((current) => {
+      if (current.size === 0) return current
+      const live = new Set(messages.map((m) => m.id))
+      const next = new Set([...current].filter((id) => live.has(id)))
+      return next.size === current.size ? current : next
+    })
+  }, [messages])
+
+  // Changing what the list is showing ends the selection outright: rows ticked
+  // in the inbox mean nothing once you are standing in Sent.
+  useEffect(() => {
+    setSelected(new Set())
+  }, [accountId, folder, search])
+
+  const pick = useCallback(
+    (index: number, mode: 'toggle' | 'range') => {
+      const target = messages[index]
+      if (!target) return
+      if (mode === 'range') {
+        // The cursor is the anchor, and a shift-click deliberately leaves it
+        // where it is so the range can be redrawn by clicking somewhere else.
+        const from = Math.min(cursor, index)
+        const to = Math.max(cursor, index)
+        // Read the previous sweep here, not inside the updater: React runs the
+        // updater at render time, by which point the ref has already been
+        // reassigned and the range would undo itself.
+        const previous = lastRange.current
+        lastRange.current = { from, to, anchor: cursor }
+        setSelected((current) => {
+          const next = new Set(current)
+          // Redrawing undoes the previous sweep first, so a second shift-click
+          // can pull the range back in as well as push it out. It is only undone
+          // while the anchor has not moved -- once the cursor has gone somewhere
+          // else, the old range is a deliberate selection and none of this
+          // range's business.
+          if (previous && previous.anchor === cursor) {
+            for (let i = previous.from; i <= previous.to; i++) {
+              if (messages[i]) next.delete(messages[i].id)
+            }
+          }
+          for (let i = from; i <= to; i++) if (messages[i]) next.add(messages[i].id)
+          return next
+        })
+        return
+      }
+      lastRange.current = null
+      setCursor(index)
+      setSelected((current) => {
+        const next = new Set(current)
+        if (next.has(target.id)) next.delete(target.id)
+        else next.add(target.id)
+        return next
+      })
+    },
+    [messages, cursor]
+  )
+
+  const pickAll = useCallback(() => {
+    lastRange.current = null
+    setSelected(new Set(messages.map((m) => m.id)))
+  }, [messages])
+
+  /* ------------------------------- actions ------------------------------- */
+
+  const removeRows = useCallback(
+    (threadIds: string[]) => {
+      const doomed = new Set(threadIds)
+      setMessages((list) => list.filter((m) => !doomed.has(m.threadId)))
+      setCursor((c) => Math.max(0, Math.min(c, messages.length - doomed.size - 1)))
+      if (openThreadId && doomed.has(openThreadId)) {
         setOpenThreadId(null)
         setThread(null)
       }
@@ -425,40 +582,140 @@ export function MailView({
     [openThreadId, messages.length]
   )
 
+  const removeRow = useCallback((threadId: string) => removeRows([threadId]), [removeRows])
+
+  /** One request per mailbox: an all-mailbox search happily mixes them. */
+  const actAll = useCallback(
+    (targets: MessageSummary[], action: Parameters<typeof api.mail.act>[2]): Promise<unknown> =>
+      Promise.all(groupByAccount(targets).map(([owner, refs]) => act(refs, action, owner))),
+    [act]
+  )
+
+  /**
+   * Do one thing to every ticked row. Everything here is applied locally first
+   * and reconciled by the next poll, so a hundred rows feel like one.
+   */
+  const bulk = useCallback(
+    (action: BulkAction, over?: MessageSummary[]) => {
+      const targets = over ?? picked
+      if (targets.length === 0) return
+      const many = `${targets.length} conversation${targets.length === 1 ? '' : 's'}`
+
+      // Reading, archiving and deleting all take rows out of the unread count.
+      const unreadByAccount = new Map<string, number>()
+      for (const m of targets) {
+        if (m.unread) unreadByAccount.set(m.accountId, (unreadByAccount.get(m.accountId) ?? 0) + 1)
+      }
+      const dropUnread = (): void => {
+        for (const [owner, n] of unreadByAccount) watch.bump(owner, 'inbox', -n)
+      }
+
+      clearPicks()
+
+      if (action === 'archive' || action === 'trash') {
+        // Archiving only empties the inbox. In a label or a search view the rows
+        // legitimately stay put, so don't drop them there.
+        if (action === 'trash' || folder === 'inbox') removeRows(targets.map((m) => m.threadId))
+        dropUnread()
+        void actAll(targets, action).then(() => {
+          if (action === 'archive' && folder !== 'inbox') void load(true)
+          watch.refresh()
+        })
+        notify(
+          action === 'archive' ? `Archived ${many}` : `Moved ${many} to trash`,
+          'info',
+          action === 'archive'
+            ? {
+                label: 'Undo',
+                run: () => {
+                  void actAll(targets, 'inbox').then(() => {
+                    void load(true)
+                    watch.refresh()
+                  })
+                }
+              }
+            : undefined
+        )
+        return
+      }
+
+      // Starring a mixed selection stars all of it; starring one that is already
+      // starred throughout takes the stars off again.
+      const starred = targets.every((m) => m.starred)
+      const resolved = action === 'star' ? (starred ? 'unstar' : 'star') : action
+      const patch: Partial<MessageSummary> =
+        resolved === 'read'
+          ? { unread: false }
+          : resolved === 'unread'
+            ? { unread: true }
+            : { starred: resolved === 'star' }
+
+      const ids = new Set(targets.map((m) => m.id))
+      setMessages((list) => list.map((m) => (ids.has(m.id) ? { ...m, ...patch } : m)))
+
+      if (resolved === 'read') dropUnread()
+      if (resolved === 'unread') {
+        for (const m of targets) if (!m.unread) watch.bump(m.accountId, 'inbox', 1)
+        setOpenThreadId(null)
+        setThread(null)
+      }
+
+      void actAll(targets, resolved).then(() => watch.refresh())
+      notify(
+        resolved === 'read'
+          ? `Marked ${many} read`
+          : resolved === 'unread'
+            ? `Marked ${many} unread`
+            : `${resolved === 'star' ? 'Starred' : 'Unstarred'} ${many}`
+      )
+    },
+    [picked, folder, removeRows, actAll, load, notify, watch, clearPicks]
+  )
+
   const archive = useCallback(
     (summary?: MessageSummary) => {
+      // With rows ticked, an unaimed action means "do this to the selection".
+      if (!summary && picked.length > 0) return bulk('archive')
       const target = summary ?? currentSummary
       if (!target) return
       const ref = { id: target.id, threadId: target.threadId }
-      // Archiving only removes the conversation from the inbox. In a label or
-      // search view it legitimately stays put, so don't drop the row there.
       if (folder === 'inbox') removeRow(target.threadId)
+      if (target.unread) watch.bump(target.accountId, 'inbox', -1)
       void act([ref], 'archive', target.accountId).then(() => {
         if (folder !== 'inbox') void load(true)
+        watch.refresh()
       })
       notify('Archived', 'info', {
         label: 'Undo',
         run: () => {
-          void act([ref], 'inbox', target.accountId).then(() => load(true))
+          void act([ref], 'inbox', target.accountId).then(() => {
+            void load(true)
+            watch.refresh()
+          })
         }
       })
     },
-    [currentSummary, removeRow, act, notify, load, folder]
+    [picked, bulk, currentSummary, removeRow, act, notify, load, folder, watch]
   )
 
   const trash = useCallback(
     (summary?: MessageSummary) => {
+      if (!summary && picked.length > 0) return bulk('trash')
       const target = summary ?? currentSummary
       if (!target) return
       removeRow(target.threadId)
-      void act([{ id: target.id, threadId: target.threadId }], 'trash', target.accountId)
+      if (target.unread) watch.bump(target.accountId, 'inbox', -1)
+      void act([{ id: target.id, threadId: target.threadId }], 'trash', target.accountId).then(
+        () => watch.refresh()
+      )
       notify('Moved to trash')
     },
-    [currentSummary, removeRow, act, notify]
+    [picked, bulk, currentSummary, removeRow, act, notify, watch]
   )
 
   const toggleStar = useCallback(
     (summary?: MessageSummary) => {
+      if (!summary && picked.length > 0) return bulk('star')
       const target = summary ?? currentSummary
       if (!target) return
       const next = !target.starred
@@ -467,30 +724,35 @@ export function MailView({
       )
       void act([{ id: target.id, threadId: target.threadId }], next ? 'star' : 'unstar', target.accountId)
     },
-    [currentSummary, act]
+    [picked, bulk, currentSummary, act]
   )
 
   const markUnread = useCallback(
     (summary?: MessageSummary) => {
+      if (!summary && picked.length > 0) return bulk('unread')
       const target = summary ?? currentSummary
       if (!target) return
       setMessages((list) =>
         list.map((m) => (m.threadId === target.threadId ? { ...m, unread: true } : m))
       )
-      void act([{ id: target.id, threadId: target.threadId }], 'unread', target.accountId)
+      if (!target.unread) watch.bump(target.accountId, 'inbox', 1)
+      void act([{ id: target.id, threadId: target.threadId }], 'unread', target.accountId).then(
+        () => watch.refresh()
+      )
       setOpenThreadId(null)
       setThread(null)
     },
-    [currentSummary, act]
+    [picked, bulk, currentSummary, act, watch]
   )
 
   const moveToInbox = useCallback(() => {
-    const target = currentSummary
-    if (!target) return
-    removeRow(target.threadId)
-    void act([{ id: target.id, threadId: target.threadId }], 'inbox', target.accountId)
+    const targets = picked.length > 0 ? picked : currentSummary ? [currentSummary] : []
+    if (targets.length === 0) return
+    clearPicks()
+    removeRows(targets.map((m) => m.threadId))
+    void actAll(targets, 'inbox').then(() => watch.refresh())
     notify('Moved to inbox')
-  }, [currentSummary, removeRow, act, notify])
+  }, [picked, currentSummary, clearPicks, removeRows, actAll, notify, watch])
 
   /* -------------------------------- search -------------------------------- */
 
@@ -536,27 +798,33 @@ export function MailView({
 
   const labelOp = useCallback(
     async (
-      target: MessageSummary,
+      targets: MessageSummary[],
       label: MailFolder,
       mode: 'move' | 'apply' | 'remove'
     ): Promise<void> => {
       // Labels are per-account, so this only ever applies to the selected one.
-      if (!account || target.accountId !== account.id) return
-      const ref = { id: target.id, threadId: target.threadId }
-      if (mode === 'move' && folder !== label.id) removeRow(target.threadId)
+      if (!account) return
+      const mine = targets.filter((m) => m.accountId === account.id)
+      if (mine.length === 0) return
+      const refs = mine.map((m) => ({ id: m.id, threadId: m.threadId }))
+      if (mode === 'move' && folder !== label.id) removeRows(mine.map((m) => m.threadId))
+      const many = mine.length === 1 ? '' : ` (${mine.length})`
       try {
-        await call(api.mail.label(account.id, [ref], providerIdOf(label.id as `label:${string}`), mode))
+        await call(api.mail.label(account.id, refs, providerIdOf(label.id as `label:${string}`), mode))
         notify(
-          mode === 'remove' ? `Removed from ${label.name}` : `${mode === 'move' ? 'Moved' : 'Labelled'} → ${label.path}`,
+          mode === 'remove'
+            ? `Removed from ${label.name}${many}`
+            : `${mode === 'move' ? 'Moved' : 'Labelled'} → ${label.path}${many}`,
           'ok'
         )
         void loadLabels()
+        watch.refresh()
       } catch (error) {
         fail(error)
         void load(true)
       }
     },
-    [account, folder, removeRow, notify, loadLabels, fail, load]
+    [account, folder, removeRows, notify, loadLabels, fail, load, watch]
   )
 
   const promptNewLabel = useCallback(
@@ -749,97 +1017,126 @@ export function MailView({
   /* ----------------------------- context menus ---------------------------- */
 
   const labelSubmenu = useCallback(
-    (target: MessageSummary, mode: 'move' | 'apply'): MenuItem[] => {
+    (targets: MessageSummary[], mode: 'move' | 'apply'): MenuItem[] => {
       if (labels.length === 0) {
         return [{ label: 'No labels yet', disabled: true }]
       }
       return labels.map((label) => ({
         label: label.path,
         icon: <IconTag size={13} />,
-        run: () => void labelOp(target, label, mode)
+        run: () => {
+          if (targets.length > 1) clearPicks()
+          void labelOp(targets, label, mode)
+        }
       }))
     },
-    [labels, labelOp]
+    [labels, labelOp, clearPicks]
   )
 
   const openRowMenu = useCallback(
     (event: MouseEvent, target: MessageSummary) => {
       const isGmail = account?.provider === 'gmail'
+      // Right-clicking inside a selection acts on the selection. Outside it, the
+      // selection is beside the point and this is about the one row.
+      const inSelection = selected.has(target.id) && picked.length > 1
+      const targets = inSelection ? picked : [target]
+      const many = inSelection ? ` (${picked.length})` : ''
+
       // An all-mailbox search can surface rows the sidebar's labels know nothing
       // about; those get a jump to their own account instead of filing options.
       const owner = accountFor(target)
       const foreign = Boolean(owner) && owner!.id !== account?.id
-      const items: MenuItem[] = [
-        { label: 'Open', hint: '↵', run: () => void openAt(messages.indexOf(target)) },
-        {},
-        { label: 'Reply', icon: <IconReply size={13} />, hint: 'r', run: () => void startReply('reply') },
-        { label: 'Reply all', icon: <IconReplyAll size={13} />, hint: 'a', run: () => void startReply('replyAll') },
-        { label: 'Forward', icon: <IconForward size={13} />, hint: 'f', run: () => void startReply('forward') },
-        {},
-        { label: 'Archive', icon: <IconArchive size={13} />, hint: 'e', run: () => archive(target) },
-        { label: 'Delete', icon: <IconTrash size={13} />, hint: '#', danger: true, run: () => trash(target) },
-        {},
+      const anyUnread = targets.some((m) => m.unread)
+      const allStarred = targets.every((m) => m.starred)
+
+      const items: MenuItem[] = inSelection
+        ? [{ label: `${picked.length} conversations selected`, disabled: true }, {}]
+        : [
+            { label: 'Open', hint: '↵', run: () => void openAt(messages.indexOf(target)) },
+            {},
+            { label: 'Reply', icon: <IconReply size={13} />, hint: 'r', run: () => void startReply('reply') },
+            { label: 'Reply all', icon: <IconReplyAll size={13} />, hint: 'a', run: () => void startReply('replyAll') },
+            { label: 'Forward', icon: <IconForward size={13} />, hint: 'f', run: () => void startReply('forward') },
+            {}
+          ]
+
+      items.push(
         {
-          label: target.starred ? 'Unstar' : 'Star',
-          icon: <IconStar size={13} filled={target.starred} />,
-          hint: 's',
-          run: () => toggleStar(target)
+          label: `Archive${many}`,
+          icon: <IconArchive size={13} />,
+          hint: 'e',
+          run: () => (inSelection ? bulk('archive') : archive(target))
         },
         {
-          label: target.unread ? 'Mark read' : 'Mark unread',
+          label: `Delete${many}`,
+          icon: <IconTrash size={13} />,
+          hint: '#',
+          danger: true,
+          run: () => (inSelection ? bulk('trash') : trash(target))
+        },
+        {},
+        {
+          label: `${allStarred ? 'Unstar' : 'Star'}${many}`,
+          icon: <IconStar size={13} filled={allStarred} />,
+          hint: 's',
+          run: () => (inSelection ? bulk('star') : toggleStar(target))
+        },
+        {
+          label: `${anyUnread ? 'Mark read' : 'Mark unread'}${many}`,
           icon: <IconMailOpen size={13} />,
-          hint: target.unread ? '' : '⇧U',
-          run: () => {
-            if (target.unread) {
-              setMessages((list) =>
-                list.map((m) => (m.threadId === target.threadId ? { ...m, unread: false } : m))
-              )
-              void act([{ id: target.id, threadId: target.threadId }], 'read', target.accountId)
-            } else markUnread(target)
-          }
+          hint: anyUnread ? '' : '⇧U',
+          run: () => bulk(anyUnread ? 'read' : 'unread', targets)
         },
         {}
-      ]
-      if (foreign) {
+      )
+
+      if (foreign && !inSelection) {
         items.push({
           label: `Switch to ${owner!.email}`,
           run: () => setAccountId(owner!.id)
         })
       } else {
         items.push({
-          label: 'Move to',
+          label: `Move to${many}`,
           icon: <IconMove size={13} />,
-          submenu: labelSubmenu(target, 'move')
+          submenu: labelSubmenu(targets, 'move')
         })
         if (isGmail) {
           items.push({
-            label: 'Apply label',
+            label: `Apply label${many}`,
             icon: <IconTag size={13} />,
-            submenu: labelSubmenu(target, 'apply')
+            submenu: labelSubmenu(targets, 'apply')
           })
         }
       }
-      items.push(
-        {},
-        {
-          label: 'Copy sender address',
-          run: () => void navigator.clipboard.writeText(target.from.email)
-        },
-        { label: 'Copy subject', run: () => void navigator.clipboard.writeText(target.subject) }
-      )
+
+      if (inSelection) {
+        items.push({}, { label: 'Clear selection', hint: 'esc', run: clearPicks })
+      } else {
+        items.push(
+          {},
+          {
+            label: 'Copy sender address',
+            run: () => void navigator.clipboard.writeText(target.from.email)
+          },
+          { label: 'Copy subject', run: () => void navigator.clipboard.writeText(target.subject) }
+        )
+      }
       menu.open(event, items)
     },
     [
       account,
       accountFor,
       messages,
+      selected,
+      picked,
       openAt,
       startReply,
       archive,
       trash,
       toggleStar,
-      markUnread,
-      act,
+      bulk,
+      clearPicks,
       labelSubmenu,
       menu
     ]
@@ -855,10 +1152,10 @@ export function MailView({
           run: () => promptNewLabel()
         },
         {},
-        { label: 'Refresh', hint: 'ctrl R', run: () => { void load(); void loadCounts(); void loadLabels() } }
+        { label: 'Refresh', hint: 'ctrl R', run: () => { void load(); watch.refresh(); void loadLabels() } }
       ])
     },
-    [account, menu, promptNewLabel, load, loadCounts, loadLabels]
+    [account, menu, promptNewLabel, load, watch, loadLabels]
   )
 
   const openLabelMenu = useCallback(
@@ -887,50 +1184,80 @@ export function MailView({
 
   /* ------------------------------ drag & drop ----------------------------- */
 
-  const onDragStart = useCallback((event: DragEvent, target: MessageSummary) => {
-    dragRef.current = { id: target.id, threadId: target.threadId }
-    setDragging(true)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', target.subject)
-    const end = (): void => {
-      setDragging(false)
-      window.removeEventListener('dragend', end)
-    }
-    window.addEventListener('dragend', end)
-  }, [])
+  const onDragStart = useCallback(
+    (event: DragEvent, target: MessageSummary) => {
+      // Dragging a row that is part of a selection drags the whole selection;
+      // dragging one outside it is about that row alone.
+      const load = selected.has(target.id) && picked.length > 0 ? picked : [target]
+      dragRef.current = load
+      setDragging(true)
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData(
+        'text/plain',
+        load.length === 1 ? load[0].subject : `${load.length} conversations`
+      )
+      const end = (): void => {
+        setDragging(false)
+        window.removeEventListener('dragend', end)
+      }
+      window.addEventListener('dragend', end)
+    },
+    [selected, picked]
+  )
 
   const onDropOnFolder = useCallback(
     (destination: FolderId) => {
-      const ref = dragRef.current
+      const dropped = dragRef.current
       dragRef.current = null
       setDragging(false)
-      if (!ref || !account || destination === folder) return
-      const target = messages.find((m) => m.threadId === ref.threadId)
-      if (!target) return
+      if (!dropped || dropped.length === 0 || !account || destination === folder) return
+      // The rows may have moved under the drag; work from what is on screen.
+      const ids = new Set(dropped.map((m) => m.id))
+      const targets = messages.filter((m) => ids.has(m.id))
+      if (targets.length === 0) return
 
       if (isLabelFolder(destination)) {
         const label = labels.find((l) => l.id === destination)
         if (!label) return
-        if (target.accountId !== account.id) {
+        const mine = targets.filter((m) => m.accountId === account.id)
+        if (mine.length === 0) {
           notify('That message lives in another mailbox. Switch to it to file it.')
           return
         }
-        void labelOp(target, label, 'move')
+        if (mine.length < targets.length) {
+          notify(`${targets.length - mine.length} left behind — labels belong to one mailbox.`)
+        }
+        clearPicks()
+        void labelOp(mine, label, 'move')
         return
       }
-      if (destination === 'archive') return archive(target)
-      if (destination === 'trash') return trash(target)
+      if (destination === 'archive') return bulk('archive', targets)
+      if (destination === 'trash') return bulk('trash', targets)
       if (destination === 'starred') {
-        if (!target.starred) toggleStar(target)
+        const unstarred = targets.filter((m) => !m.starred)
+        if (unstarred.length > 0) bulk('star', unstarred)
         return
       }
       if (destination === 'inbox') {
-        removeRow(target.threadId)
-        void act([ref], 'inbox', target.accountId)
+        clearPicks()
+        removeRows(targets.map((m) => m.threadId))
+        void actAll(targets, 'inbox').then(() => watch.refresh())
         notify('Moved to inbox')
       }
     },
-    [account, folder, messages, labels, labelOp, archive, trash, toggleStar, removeRow, act, notify]
+    [
+      account,
+      folder,
+      messages,
+      labels,
+      labelOp,
+      bulk,
+      clearPicks,
+      removeRows,
+      actAll,
+      notify,
+      watch
+    ]
   )
 
   /* ------------------------------ shortcuts ------------------------------ */
@@ -965,8 +1292,13 @@ export function MailView({
       if (mod && event.key.toLowerCase() === 'r') {
         event.preventDefault()
         void load()
-        void loadCounts()
+        watch.refresh()
         void loadLabels()
+        return
+      }
+      if (mod && event.key.toLowerCase() === 'a') {
+        event.preventDefault()
+        pickAll()
         return
       }
       if (mod || event.altKey) return
@@ -997,9 +1329,29 @@ export function MailView({
         }
       }
 
+      // Shift+J/K walks the selection outwards from the cursor, which is the
+      // keyboard's answer to shift-clicking.
+      if (event.shiftKey && ['J', 'K', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault()
+        const step = event.key === 'J' || event.key === 'ArrowDown' ? 1 : -1
+        const to = Math.max(0, Math.min(cursor + step, messages.length - 1))
+        setSelected((current) => {
+          const next = new Set(current)
+          if (messages[cursor]) next.add(messages[cursor].id)
+          if (messages[to]) next.add(messages[to].id)
+          return next
+        })
+        setCursor(to)
+        return
+      }
+
       switch (event.key) {
         case 'g':
           goPending.current = Date.now()
+          return
+        case 'x':
+          event.preventDefault()
+          pick(cursor, 'toggle')
           return
         case 'j':
         case 'n':
@@ -1021,6 +1373,12 @@ export function MailView({
         case 'u':
         case 'Escape':
           event.preventDefault()
+          // Escape unwinds one step at a time: the selection first, since it is
+          // the thing most likely to have been made by accident.
+          if (selected.size > 0) {
+            clearPicks()
+            return
+          }
           setOpenThreadId(null)
           setThread(null)
           return
@@ -1075,8 +1433,12 @@ export function MailView({
     },
     [
     overlayOpen,
-    messages.length,
+    messages,
     cursor,
+    selected.size,
+    pick,
+    pickAll,
+    clearPicks,
     openAt,
     archive,
     trash,
@@ -1086,7 +1448,7 @@ export function MailView({
     startReply,
     focusSearch,
     load,
-    loadCounts,
+    watch,
     loadLabels
     ]
   )
@@ -1110,6 +1472,38 @@ export function MailView({
         }
       }
     ]
+    if (messages.length > 0) {
+      list.push({
+        id: 'select-all',
+        group: 'Actions',
+        label: 'Select every conversation listed',
+        keys: ['ctrl', 'a'],
+        run: pickAll
+      })
+    }
+    if (selected.size > 0) {
+      list.push(
+        {
+          id: 'clear-selection',
+          group: 'Actions',
+          label: `Clear the selection (${selected.size})`,
+          keys: ['esc'],
+          run: clearPicks
+        },
+        {
+          id: 'bulk-read',
+          group: 'Actions',
+          label: `Mark ${selected.size} read`,
+          run: () => bulk('read')
+        },
+        {
+          id: 'bulk-unread',
+          group: 'Actions',
+          label: `Mark ${selected.size} unread`,
+          run: () => bulk('unread')
+        }
+      )
+    }
     if (currentSummary) {
       list.push(
         { id: 'archive', group: 'Actions', label: 'Archive conversation', keys: ['e'], run: () => archive() },
@@ -1159,6 +1553,11 @@ export function MailView({
     return list
   }, [
     currentSummary,
+    messages.length,
+    selected.size,
+    pickAll,
+    clearPicks,
+    bulk,
     accounts,
     labels,
     accountId,
@@ -1183,7 +1582,8 @@ export function MailView({
           accounts={accounts}
           activeAccountId={account.id}
           folder={folder}
-          counts={counts}
+          counts={watch.counts[account.id] ?? {}}
+          unreadFor={watch.unreadFor}
           labels={labels}
           labelsLoading={labelsLoading}
           onSelectAccount={setAccountId}
@@ -1227,6 +1627,11 @@ export function MailView({
           onLoadMore={() => void loadMore()}
           onRowMenu={openRowMenu}
           onDragStart={onDragStart}
+          selected={selected}
+          onPick={pick}
+          onPickAll={pickAll}
+          onClearPicks={clearPicks}
+          onBulk={bulk}
         />
 
         <Reader
@@ -1256,6 +1661,9 @@ export function MailView({
         </span>
         <span className="pair">
           <span className="kbd">e</span> archive
+        </span>
+        <span className="pair">
+          <span className="kbd">x</span> select
         </span>
         <span className="pair">
           <span className="kbd">c</span> compose

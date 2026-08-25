@@ -21,12 +21,20 @@ export interface ThemeColors {
   red: string
   purple: string
   accent: string
+  /**
+   * The accent's counterweight. Picked to sit across the wheel from `accent`
+   * rather than beside it, so the app has two voices instead of ten shades of
+   * one. Badges, counts and highlights use it to mean "something new".
+   */
+  accent2: string
 }
 
 export interface Theme {
   id: string
   name: string
   family: string
+  /** Drives `color-scheme`, shadow weight and which text reads on the accent. */
+  dark: boolean
   colors: ThemeColors
 }
 
@@ -35,6 +43,7 @@ export const THEMES: Theme[] = [
     id: 'tokyo-night-storm',
     name: 'Storm',
     family: 'Tokyo Night',
+    dark: true,
     colors: {
       bg: '#24283b',
       bgDeep: '#1f2335',
@@ -57,13 +66,15 @@ export const THEMES: Theme[] = [
       orange: '#ff9e64',
       red: '#f7768e',
       purple: '#bb9af7',
-      accent: '#7aa2f7'
+      accent: '#7aa2f7',
+      accent2: '#ff9e64'
     }
   },
   {
     id: 'tokyo-night',
     name: 'Night',
     family: 'Tokyo Night',
+    dark: true,
     colors: {
       bg: '#1a1b26',
       bgDeep: '#16161e',
@@ -86,13 +97,15 @@ export const THEMES: Theme[] = [
       orange: '#ff9e64',
       red: '#f7768e',
       purple: '#bb9af7',
-      accent: '#7aa2f7'
+      accent: '#7aa2f7',
+      accent2: '#ff9e64'
     }
   },
   {
     id: 'catppuccin-mocha',
     name: 'Mocha',
     family: 'Catppuccin',
+    dark: true,
     colors: {
       bg: '#1e1e2e',
       bgDeep: '#181825',
@@ -115,13 +128,15 @@ export const THEMES: Theme[] = [
       orange: '#fab387',
       red: '#f38ba8',
       purple: '#cba6f7',
-      accent: '#89b4fa'
+      accent: '#89b4fa',
+      accent2: '#fab387'
     }
   },
   {
     id: 'catppuccin-macchiato',
     name: 'Macchiato',
     family: 'Catppuccin',
+    dark: true,
     colors: {
       bg: '#24273a',
       bgDeep: '#1e2030',
@@ -144,13 +159,15 @@ export const THEMES: Theme[] = [
       orange: '#f5a97f',
       red: '#ed8796',
       purple: '#c6a0f6',
-      accent: '#8aadf4'
+      accent: '#8aadf4',
+      accent2: '#f5a97f'
     }
   },
   {
     id: 'catppuccin-frappe',
     name: 'Frappé',
     family: 'Catppuccin',
+    dark: true,
     colors: {
       bg: '#303446',
       bgDeep: '#292c3c',
@@ -173,13 +190,139 @@ export const THEMES: Theme[] = [
       orange: '#ef9f76',
       red: '#e78284',
       purple: '#ca9ee6',
-      accent: '#8caaee'
+      accent: '#8caaee',
+      accent2: '#ef9f76'
+    }
+  },
+  {
+    id: 'catppuccin-latte',
+    name: 'Latte',
+    family: 'Catppuccin',
+    dark: false,
+    colors: {
+      bg: '#eff1f5',
+      bgDeep: '#e6e9ef',
+      bgSunken: '#dce0e8',
+      bgRaise: '#ffffff',
+      bgHover: '#e6e9ef',
+      bgActive: '#d3d8e3',
+      border: '#ccd0da',
+      borderSoft: '#dee1e9',
+      borderStrong: '#acb0be',
+      fg: '#4c4f69',
+      fgDim: '#5c5f77',
+      fgMute: '#7c7f93',
+      fgFaint: '#9ca0b0',
+      blue: '#1e66f5',
+      cyan: '#04a5e5',
+      teal: '#179299',
+      green: '#40a02b',
+      yellow: '#df8e1d',
+      orange: '#fe640b',
+      red: '#d20f39',
+      purple: '#8839ef',
+      accent: '#1e66f5',
+      accent2: '#fe640b'
+    }
+  },
+  {
+    id: 'everforest-dark',
+    name: 'Everforest',
+    family: 'Woodland',
+    dark: true,
+    colors: {
+      bg: '#2d353b',
+      bgDeep: '#272e33',
+      bgSunken: '#1e2326',
+      bgRaise: '#374145',
+      bgHover: '#333c43',
+      bgActive: '#414b50',
+      border: '#3d484d',
+      borderSoft: '#343f44',
+      borderStrong: '#4f585e',
+      fg: '#d3c6aa',
+      fgDim: '#c0b295',
+      fgMute: '#9da9a0',
+      fgFaint: '#7a8478',
+      blue: '#7fbbb3',
+      cyan: '#83c092',
+      teal: '#83c092',
+      green: '#a7c080',
+      yellow: '#dbbc7f',
+      orange: '#e69875',
+      red: '#e67e80',
+      purple: '#d699b6',
+      accent: '#a7c080',
+      accent2: '#e69875'
+    }
+  },
+  {
+    id: 'kanagawa-wave',
+    name: 'Kanagawa',
+    family: 'Woodland',
+    dark: true,
+    colors: {
+      bg: '#1f1f28',
+      bgDeep: '#16161d',
+      bgSunken: '#12121a',
+      bgRaise: '#2a2a37',
+      bgHover: '#24242f',
+      bgActive: '#363646',
+      border: '#2a2a37',
+      borderSoft: '#232330',
+      borderStrong: '#54546d',
+      fg: '#dcd7ba',
+      fgDim: '#c8c093',
+      fgMute: '#938aa9',
+      fgFaint: '#727169',
+      blue: '#7e9cd8',
+      cyan: '#7fb4ca',
+      teal: '#6a9589',
+      green: '#98bb6c',
+      yellow: '#e6c384',
+      orange: '#ffa066',
+      red: '#e46876',
+      purple: '#957fb8',
+      accent: '#7e9cd8',
+      accent2: '#ffa066'
+    }
+  },
+  {
+    id: 'ayu-mirage',
+    name: 'Mirage',
+    family: 'Ayu',
+    dark: true,
+    colors: {
+      bg: '#242936',
+      bgDeep: '#1f2430',
+      bgSunken: '#1a1f29',
+      bgRaise: '#2d3441',
+      bgHover: '#2a303c',
+      bgActive: '#3a4250',
+      border: '#323945',
+      borderSoft: '#2b323d',
+      borderStrong: '#4a5364',
+      fg: '#cbccc6',
+      fgDim: '#b8bcb6',
+      fgMute: '#8a9199',
+      fgFaint: '#5c6773',
+      blue: '#73d0ff',
+      cyan: '#5ccfe6',
+      teal: '#95e6cb',
+      green: '#bae67e',
+      yellow: '#ffd580',
+      orange: '#ffa759',
+      red: '#f28779',
+      purple: '#d4bfff',
+      accent: '#ffa759',
+      accent2: '#5ccfe6'
     }
   },
   {
     id: 'one-dark',
     name: 'One Dark',
     family: 'Atom',
+    dark: true,
     colors: {
       bg: '#282c34',
       bgDeep: '#21252b',
@@ -202,13 +345,15 @@ export const THEMES: Theme[] = [
       orange: '#d19a66',
       red: '#e06c75',
       purple: '#c678dd',
-      accent: '#61afef'
+      accent: '#61afef',
+      accent2: '#d19a66'
     }
   },
   {
     id: 'gruvbox-dark',
     name: 'Gruvbox',
     family: 'Retro',
+    dark: true,
     colors: {
       bg: '#282828',
       bgDeep: '#1d2021',
@@ -231,13 +376,77 @@ export const THEMES: Theme[] = [
       orange: '#fe8019',
       red: '#fb4934',
       purple: '#d3869b',
-      accent: '#83a598'
+      accent: '#83a598',
+      accent2: '#fe8019'
+    }
+  },
+  {
+    id: 'solarized-dark',
+    name: 'Solarized',
+    family: 'Retro',
+    dark: true,
+    colors: {
+      bg: '#002b36',
+      bgDeep: '#00252e',
+      bgSunken: '#001f26',
+      bgRaise: '#073642',
+      bgHover: '#04303b',
+      bgActive: '#0d4552',
+      border: '#0b3c49',
+      borderSoft: '#073642',
+      borderStrong: '#17505f',
+      fg: '#93a1a1',
+      fgDim: '#839496',
+      fgMute: '#6b8189',
+      fgFaint: '#586e75',
+      blue: '#268bd2',
+      cyan: '#2aa198',
+      teal: '#2aa198',
+      green: '#859900',
+      yellow: '#b58900',
+      orange: '#cb4b16',
+      red: '#dc322f',
+      purple: '#6c71c4',
+      accent: '#268bd2',
+      accent2: '#cb4b16'
+    }
+  },
+  {
+    id: 'solarized-light',
+    name: 'Solarized Light',
+    family: 'Retro',
+    dark: false,
+    colors: {
+      bg: '#fdf6e3',
+      bgDeep: '#f5eeda',
+      bgSunken: '#eee8d5',
+      bgRaise: '#fffdf6',
+      bgHover: '#f4edd8',
+      bgActive: '#e6dfc8',
+      border: '#e3dcc4',
+      borderSoft: '#eee8d5',
+      borderStrong: '#c9c2ab',
+      fg: '#4a5c62',
+      fgDim: '#586e75',
+      fgMute: '#78909a',
+      fgFaint: '#93a1a1',
+      blue: '#268bd2',
+      cyan: '#2aa198',
+      teal: '#2aa198',
+      green: '#6f7f00',
+      yellow: '#a37800',
+      orange: '#cb4b16',
+      red: '#dc322f',
+      purple: '#6c71c4',
+      accent: '#268bd2',
+      accent2: '#cb4b16'
     }
   },
   {
     id: 'nord',
     name: 'Nord',
     family: 'Arctic',
+    dark: true,
     colors: {
       bg: '#2e3440',
       bgDeep: '#292e39',
@@ -260,13 +469,15 @@ export const THEMES: Theme[] = [
       orange: '#d08770',
       red: '#bf616a',
       purple: '#b48ead',
-      accent: '#88c0d0'
+      accent: '#88c0d0',
+      accent2: '#d08770'
     }
   },
   {
     id: 'dracula',
     name: 'Dracula',
     family: 'Classic',
+    dark: true,
     colors: {
       bg: '#282a36',
       bgDeep: '#21222c',
@@ -289,13 +500,15 @@ export const THEMES: Theme[] = [
       orange: '#ffb86c',
       red: '#ff5555',
       purple: '#ff79c6',
-      accent: '#bd93f9'
+      accent: '#bd93f9',
+      accent2: '#50fa7b'
     }
   },
   {
     id: 'rose-pine',
     name: 'Rosé Pine',
     family: 'Classic',
+    dark: true,
     colors: {
       bg: '#1f1d2e',
       bgDeep: '#191724',
@@ -318,7 +531,39 @@ export const THEMES: Theme[] = [
       orange: '#ebbcba',
       red: '#eb6f92',
       purple: '#c4a7e7',
-      accent: '#c4a7e7'
+      accent: '#c4a7e7',
+      accent2: '#f6c177'
+    }
+  },
+  {
+    id: 'rose-pine-dawn',
+    name: 'Dawn',
+    family: 'Classic',
+    dark: false,
+    colors: {
+      bg: '#faf4ed',
+      bgDeep: '#f2e9e1',
+      bgSunken: '#eae0d6',
+      bgRaise: '#fffaf3',
+      bgHover: '#f4ede8',
+      bgActive: '#e4dcd6',
+      border: '#dfdad9',
+      borderSoft: '#ece5df',
+      borderStrong: '#c5bfc4',
+      fg: '#575279',
+      fgDim: '#6a6389',
+      fgMute: '#797593',
+      fgFaint: '#9893a5',
+      blue: '#56949f',
+      cyan: '#56949f',
+      teal: '#286983',
+      green: '#4f8f68',
+      yellow: '#ea9d34',
+      orange: '#d7827e',
+      red: '#b4637a',
+      purple: '#907aa9',
+      accent: '#907aa9',
+      accent2: '#ea9d34'
     }
   }
 ]
@@ -351,10 +596,11 @@ const VAR_NAMES: Record<keyof ThemeColors, string> = {
   orange: '--orange',
   red: '--red',
   purple: '--purple',
-  accent: '--accent'
+  accent: '--accent',
+  accent2: '--accent-2'
 }
 
-function rgba(hex: string, alpha: number): string {
+function channels(hex: string): [number, number, number] {
   const value = hex.replace('#', '')
   const full =
     value.length === 3
@@ -364,19 +610,79 @@ function rgba(hex: string, alpha: number): string {
           .join('')
       : value
   const int = parseInt(full, 16)
-  return `rgba(${(int >> 16) & 255}, ${(int >> 8) & 255}, ${int & 255}, ${alpha})`
+  return [(int >> 16) & 255, (int >> 8) & 255, int & 255]
+}
+
+function rgba(hex: string, alpha: number): string {
+  const [r, g, b] = channels(hex)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/** WCAG relative luminance, used to decide what text can sit on a colour. */
+function luminance(hex: string): number {
+  const [r, g, b] = channels(hex).map((c) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * Text that reads on a filled swatch. A badge is small and often bold, so
+ * guessing this from the theme's brightness is not good enough -- a light theme
+ * can still have a dark accent, and a dark one a near-white accent. 0.179 is
+ * where black and white draw level on the WCAG contrast formula.
+ */
+export function readableOn(hex: string): string {
+  return luminance(hex) > 0.179 ? '#0e1013' : '#ffffff'
 }
 
 /** Write the theme onto :root as custom properties. */
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement
+  const c = theme.colors
+  const set = (name: string, value: string): void => root.style.setProperty(name, value)
+
   for (const [key, name] of Object.entries(VAR_NAMES)) {
-    root.style.setProperty(name, theme.colors[key as keyof ThemeColors])
+    set(name, c[key as keyof ThemeColors])
   }
-  // Derived tokens that need alpha over the theme's own accent.
-  root.style.setProperty('--accent-soft', rgba(theme.colors.accent, 0.14))
-  root.style.setProperty('--accent-line', rgba(theme.colors.accent, 0.38))
-  root.style.setProperty('--bg-overlay', rgba(theme.colors.bgSunken, 0.66))
-  root.style.setProperty('--on-accent', theme.colors.bgDeep)
+
+  // Tints. Every one is derived from the theme rather than frozen to whichever
+  // palette happened to be on screen when the rule was written -- that is what
+  // used to make every theme look like Tokyo Night wearing a different coat.
+  const soft = theme.dark ? 0.14 : 0.11
+  const wash = theme.dark ? 0.09 : 0.08
+  const tint: [string, string][] = [
+    ['accent', c.accent],
+    ['accent-2', c.accent2],
+    ['blue', c.blue],
+    ['cyan', c.cyan],
+    ['green', c.green],
+    ['yellow', c.yellow],
+    ['orange', c.orange],
+    ['red', c.red],
+    ['purple', c.purple]
+  ]
+  for (const [name, value] of tint) {
+    set(`--${name}-wash`, rgba(value, wash))
+    set(`--${name}-soft`, rgba(value, soft))
+    set(`--${name}-line`, rgba(value, theme.dark ? 0.38 : 0.34))
+    set(`--${name}-glow`, rgba(value, theme.dark ? 0.4 : 0.28))
+  }
+
+  set('--on-accent', readableOn(c.accent))
+  set('--on-accent-2', readableOn(c.accent2))
+  set('--bg-overlay', rgba(c.bgSunken, theme.dark ? 0.66 : 0.5))
+
+  // Light surfaces need a much lighter hand: the same shadow that reads as
+  // depth on #1a1b26 reads as dirt on #faf4ed.
+  const shadow = (y: number, blur: number, alpha: number): string =>
+    `0 ${y}px ${blur}px rgba(${theme.dark ? '0, 0, 0' : '90, 78, 66'}, ${alpha})`
+  set('--shadow-sm', shadow(1, 2, theme.dark ? 0.22 : 0.08))
+  set('--shadow-md', shadow(10, 30, theme.dark ? 0.3 : 0.12))
+  set('--shadow-lg', shadow(24, 64, theme.dark ? 0.42 : 0.18))
+
+  root.style.colorScheme = theme.dark ? 'dark' : 'light'
   root.dataset.theme = theme.id
+  root.dataset.scheme = theme.dark ? 'dark' : 'light'
 }

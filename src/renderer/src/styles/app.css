@@ -66,7 +66,7 @@
 
 .wincontrols button.close:hover {
   background: var(--red);
-  color: var(--on-accent, #1f2335);
+  color: var(--on-accent);
 }
 
 .body {
@@ -113,7 +113,7 @@
 .btn--primary {
   background: var(--accent);
   border-color: transparent;
-  color: var(--on-accent, #1b1e2e);
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -137,13 +137,13 @@
 
 .btn--danger {
   color: var(--red);
-  border-color: rgba(247, 118, 142, 0.3);
-  background: rgba(247, 118, 142, 0.08);
+  border-color: var(--red-line);
+  background: var(--red-wash);
 }
 
 .btn--danger:hover:not(:disabled) {
-  background: rgba(247, 118, 142, 0.16);
-  border-color: rgba(247, 118, 142, 0.45);
+  background: var(--red-soft);
+  border-color: var(--red);
 }
 
 .btn--sm {
@@ -204,8 +204,8 @@
 .error-line {
   color: var(--red);
   font-size: 12.5px;
-  background: rgba(247, 118, 142, 0.09);
-  border: 1px solid rgba(247, 118, 142, 0.24);
+  background: var(--red-wash);
+  border: 1px solid var(--red-line);
   border-radius: var(--radius);
   padding: 8px 11px;
   user-select: text;
@@ -411,8 +411,8 @@
 .setup__warn {
   padding: 11px 13px;
   border-radius: var(--radius);
-  background: rgba(224, 175, 104, 0.08);
-  border: 1px solid rgba(224, 175, 104, 0.24);
+  background: var(--yellow-wash);
+  border: 1px solid var(--yellow-line);
   color: var(--yellow);
   font-size: 12px;
   line-height: 1.55;
@@ -503,13 +503,30 @@
   color: var(--fg-faint);
 }
 
+/* Each mailbox counts in its own colour -- the same one as its avatar -- so with
+   several accounts you can tell which one just woke up without reading a word. */
+.account-chip__count {
+  flex: none;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 6px var(--tint, transparent);
+}
+
 .avatar {
   flex: none;
   display: grid;
   place-items: center;
   border-radius: 50%;
   font-weight: 650;
-  color: var(--on-accent, #1b1e2e);
+  color: var(--on-accent);
   font-size: 11px;
   letter-spacing: -0.01em;
 }
@@ -584,15 +601,58 @@
   border-width: 1.5px;
 }
 
+/* Counts. A total (drafts) is information; unread is news, and news gets the
+   accent's counterweight so it reads at a glance from across the room. */
 .nav__count {
   margin-left: auto;
-  font-size: 11px;
+  flex: none;
+  min-width: 19px;
+  height: 17px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  font-size: 10.5px;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
-  color: var(--fg-faint);
+  letter-spacing: 0.01em;
+  color: var(--fg-mute);
+  background: var(--bg-active);
+}
+
+.nav__count--unread {
+  color: var(--on-accent-2);
+  background: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2-line), 0 1px 6px var(--accent-2-glow);
 }
 
 .nav__item.is-active .nav__count {
-  color: var(--blue);
+  color: var(--fg);
+}
+
+.nav__item.is-active .nav__count--unread {
+  color: var(--on-accent-2);
+}
+
+/* A count that has just gone up gives one beat of movement. The element is
+   keyed on its value, so React remounts it and the animation replays. */
+@keyframes count-pop {
+  0% {
+    transform: scale(0.72);
+  }
+  55% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.nav__count--unread,
+.account-chip__count,
+.rail__count {
+  animation: count-pop 0.34s cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 
 .sidebar__foot {
@@ -601,6 +661,131 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* bulk selection                                                      */
+/* ------------------------------------------------------------------ */
+
+/* The checkbox is a hover affordance until a selection exists, at which point
+   the whole list switches into picking mode and every box stays visible. */
+.row__pick {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--bg-sunken);
+  display: grid;
+  place-items: center;
+  color: var(--on-accent-2);
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, border-color 0.1s;
+}
+
+.row:hover .row__pick,
+.list.is-picking .row__pick,
+.row__pick:focus-visible {
+  opacity: 1;
+}
+
+.row__pick:hover {
+  border-color: var(--accent-2);
+}
+
+.row__pick.is-on {
+  opacity: 1;
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+}
+
+.row__pick svg {
+  display: block;
+}
+
+.row.is-picked {
+  background: var(--accent-2-wash);
+}
+
+.row.is-picked::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-2);
+}
+
+.row.is-picked:hover {
+  background: var(--accent-2-soft);
+}
+
+/* Shift-click walks a range, and while it does the browser would otherwise
+   paint a text selection across every row it passes. */
+.list.is-picking .row,
+.list.is-picking .row * {
+  user-select: none;
+}
+
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  margin: 8px 0 0;
+  border-radius: var(--radius);
+  background: var(--accent-2-soft);
+  border: 1px solid var(--accent-2-line);
+  animation: rise 0.14s ease-out;
+}
+
+.bulkbar__count {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bulkbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.bulkbar__btn {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--fg-mute);
+  transition: background 0.12s, color 0.12s;
+}
+
+.bulkbar__btn:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--fg);
+}
+
+.bulkbar__btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.bulkbar__btn.is-danger:hover {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.bulkbar__sep {
+  width: 1px;
+  height: 15px;
+  margin: 0 3px;
+  background: var(--accent-2-line);
 }
 
 /* ------------------------------------------------------------------ */
@@ -723,7 +908,8 @@
 }
 
 .row.is-unread .row__dot {
-  background: var(--accent);
+  background: var(--accent-2);
+  box-shadow: 0 0 0 3px var(--accent-2-wash);
 }
 
 .row__main {
@@ -989,7 +1175,7 @@
   background: #fff;
   border-radius: var(--radius);
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -1000,8 +1186,8 @@
   padding: 7px 11px;
   margin-bottom: 12px;
   border-radius: var(--radius);
-  background: rgba(224, 175, 104, 0.09);
-  border: 1px solid rgba(224, 175, 104, 0.22);
+  background: var(--yellow-wash);
+  border: 1px solid var(--yellow-line);
   font-size: 12px;
   color: var(--yellow);
 }
@@ -1556,7 +1742,7 @@
 }
 
 .menu__item.is-danger.is-cursor {
-  background: rgba(247, 118, 142, 0.14);
+  background: var(--red-soft);
   color: var(--red);
 }
 
@@ -1751,17 +1937,18 @@
 }
 
 .chip:hover {
-  background: rgba(122, 162, 247, 0.22);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
   color: var(--fg);
 }
 
 .chip--op {
-  background: rgba(187, 154, 247, 0.13);
-  border-color: rgba(187, 154, 247, 0.32);
+  background: var(--purple-soft);
+  border-color: var(--purple-line);
 }
 
 .chip--op:hover {
-  background: rgba(187, 154, 247, 0.22);
+  background: var(--purple-line);
 }
 
 .chip__op {
@@ -1776,14 +1963,15 @@
 }
 
 mark.hit {
-  background: rgba(224, 175, 104, 0.26);
+  background: var(--yellow-soft);
+  box-shadow: inset 0 -1px 0 var(--yellow-line);
   color: var(--yellow);
   border-radius: 2px;
   padding: 0 1px;
 }
 
 .row.is-unread mark.hit {
-  color: #ffce8a;
+  color: var(--accent-2);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1795,7 +1983,7 @@ mark.hit {
 }
 
 .nav.is-dragging .nav__item.is-droppable {
-  background: rgba(122, 162, 247, 0.06);
+  background: var(--accent-wash);
 }
 
 .nav__item.is-drop {
@@ -1880,14 +2068,19 @@ mark.hit {
   transition: background 0.12s, color 0.12s;
 }
 
-.segmented__btn:hover {
+.segmented__btn:hover:not(:disabled) {
   color: var(--fg);
 }
 
+.segmented__btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .segmented__btn.is-on {
-  background: var(--bg-active);
-  color: var(--fg);
-  font-weight: 550;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .iconbtn.is-on-accent {
@@ -2206,12 +2399,12 @@ mark.hit {
 }
 
 .toast--error {
-  border-color: rgba(247, 118, 142, 0.4);
+  border-color: var(--red-line);
   color: var(--red);
 }
 
 .toast--ok {
-  border-color: rgba(158, 206, 106, 0.35);
+  border-color: var(--green-line);
   color: var(--green);
 }
 
@@ -2371,14 +2564,28 @@ mark.hit {
   background: var(--border);
 }
 
-.rail__dot {
+/* The rail is 44px wide and always on screen, so it is the one place a count
+   has to survive being tiny: a ring in the rail's own background cuts it out of
+   the icon behind it. */
+.rail__count {
   position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--blue);
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--accent-2);
+  color: var(--on-accent-2);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--bg-sunken), 0 1px 6px var(--accent-2-glow);
+  pointer-events: none;
 }
 
 /* ------------------------------------------------------------------ */

@@ -180,6 +180,24 @@ export interface AppSettings {
    * a light sheet and leaves plain ones on the app background.
    */
   messageSurface: 'auto' | 'light' | 'dark'
+  /** Raise a desktop notification when mail lands while the app is running. */
+  notifications: boolean
+  /** Let the notification make the system's noise. */
+  notificationSound: boolean
+  /** Put the unread total on the launcher/taskbar icon. */
+  badgeCount: boolean
+}
+
+/** One arriving message, described well enough to notify about it. */
+export interface MailNotice {
+  accountId: string
+  /** The mailbox it landed in, so the notification can say which. */
+  accountEmail: string
+  threadId: string
+  messageId: string
+  from: string
+  subject: string
+  snippet: string
 }
 
 export interface Contact {

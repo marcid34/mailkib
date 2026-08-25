@@ -52,8 +52,8 @@ const textStyle = (mono: string): string => `
   }
 `
 
-const baseStyle = (c: ThemeColors, font: Fonts): string => `
-  html { color-scheme: dark; overflow-y: hidden; }
+const baseStyle = (c: ThemeColors, font: Fonts, dark: boolean): string => `
+  html { color-scheme: ${dark ? 'dark' : 'light'}; overflow-y: hidden; }
   body {
     margin: 0;
     overflow-x: auto;
@@ -214,7 +214,9 @@ function buildDocument(
   trusted: boolean,
   light: boolean,
   colors: ThemeColors,
-  font: Fonts
+  font: Fonts,
+  /** Whether the app's own surface is dark — a light theme flips this frame too. */
+  darkApp: boolean
 ): string {
   // `style` is not in DOMPurify's default allowlist, but HTML email leans on it
   // heavily -- without it most newsletters render as unstyled text. Allowing it
@@ -239,7 +241,7 @@ function buildDocument(
   const imgSrc = allowRemote ? 'data: blob: https: http:' : 'data: blob:'
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src ${imgSrc}; media-src ${imgSrc}; font-src data:; frame-src 'none'; form-action 'none'">
-<style>${light ? lightStyle(font) : baseStyle(colors, font)}</style></head><body>${clean}</body></html>`
+<style>${light ? lightStyle(font) : baseStyle(colors, font, darkApp)}</style></head><body>${clean}</body></html>`
 }
 
 /**
@@ -269,7 +271,7 @@ export function EmailFrame({
   const { open: openMenu, close: closeMenu } = menu
   const light = resolveSurface(surface, html) === 'light'
   const doc = useMemo(
-    () => buildDocument(html, allowRemote, trusted, light, theme.colors, fontStacks()),
+    () => buildDocument(html, allowRemote, trusted, light, theme.colors, fontStacks(), theme.dark),
     [html, allowRemote, trusted, light, theme]
   )
 

@@ -15,6 +15,7 @@ import type {
   OAuthRequest,
   ThreadView
 } from '../shared/types'
+import type { MailNotice } from '../shared/types'
 import type { Note, NotePatch, NoteSummary } from '../shared/notes'
 import * as accounts from './accounts'
 import * as cache from './cache'
@@ -33,6 +34,7 @@ import { GmailProvider } from './providers/gmail'
 import { GraphProvider } from './providers/graph'
 import type { MailProvider, MessageRef } from './providers/types'
 import { appImagePath, desktopStatus, installDesktopEntry } from './desktop'
+import { initNotifications, notifyMail, setBadge } from './notify'
 
 function providerFor(accountId: string): MailProvider {
   const account = accounts.getMailAccount(accountId)
@@ -65,6 +67,8 @@ interface ActPayload {
 }
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
+  initNotifications(getWindow)
+
   /* ------------------------------ app shell ------------------------------ */
 
   handle('app:info', () => ({
@@ -90,6 +94,17 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   handle('app:setSettings', (patch: Partial<AppSettings>): AppSettings => setSettings(patch))
 
   handle('app:installDesktopEntry', () => installDesktopEntry(true))
+
+  handle('app:notifyMail', (notices: MailNotice[]) => {
+    const settings = getSettings()
+    if (!settings.notifications) return 0
+    return notifyMail(notices, !settings.notificationSound)
+  })
+
+  handle('app:badge', (count: number) => {
+    setBadge(getSettings().badgeCount ? count : 0)
+    return true
+  })
 
   handle('app:openExternal', async (url: string) => {
     const parsed = new URL(url)

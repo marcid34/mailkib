@@ -37,6 +37,18 @@ const GROUPS: { title: string; rows: [string, string[]][] }[] = [
     ]
   },
   {
+    title: 'Select',
+    rows: [
+      ['Tick this conversation', ['x']],
+      ['Tick a range', ['shift', 'click']],
+      ['Add one to the selection', ['ctrl', 'click']],
+      ['Extend the selection', ['shift', 'j']],
+      ['Select everything listed', ['ctrl', 'a']],
+      ['Clear the selection', ['esc']],
+      ['Act on the selection', ['e', '#', 's']]
+    ]
+  },
+  {
     title: 'Kib',
     rows: [
       ['Hub', ['ctrl', '0']],

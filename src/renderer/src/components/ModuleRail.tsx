@@ -15,6 +15,7 @@ export function ModuleRail({
   onToggleNotes
 }: {
   active: ModuleId | null
+  /** Unread across every mailbox, shown as a counter on the mail button. */
   unread?: number
   notesOpen: boolean
   onOpen: (id: ModuleId) => void
@@ -52,7 +53,10 @@ export function ModuleRail({
           >
             <Icon size={18} />
             {module.id === 'mail' && unread !== undefined && unread > 0 && (
-              <span className="rail__dot" aria-hidden="true" />
+              // Keyed on the number so an arrival replays the pop.
+              <span key={unread} className="rail__count">
+                {unread > 99 ? '99+' : unread}
+              </span>
             )}
           </button>
         )

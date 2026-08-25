@@ -13,6 +13,7 @@ import type {
   ListResult,
   MailAccount,
   MailFolder,
+  MailNotice,
   OAuthRequest,
   Result,
   ThreadView
@@ -38,6 +39,20 @@ const api: MailkibApi = {
     setSettings: (patch: Partial<AppSettings>) => invoke<AppSettings>('app:setSettings', patch),
     installDesktopEntry: () => invoke<DesktopStatus>('app:installDesktopEntry'),
     openExternal: (url: string) => invoke<boolean>('app:openExternal', url),
+    notifyMail: (notices: MailNotice[]) => invoke<number>('app:notifyMail', notices),
+    setBadge: (count: number) => invoke<boolean>('app:badge', count),
+    onOpenMail: (
+      cb: (target: { accountId: string; threadId: string; messageId: string }) => void
+    ) => {
+      const listener = (
+        _e: unknown,
+        target: { accountId: string; threadId: string; messageId: string }
+      ): void => cb(target)
+      ipcRenderer.on('mail:open', listener)
+      return (): void => {
+        ipcRenderer.removeListener('mail:open', listener)
+      }
+    },
     pathForFile: (file: File) => {
       try {
         return webUtils.getPathForFile(file) || null

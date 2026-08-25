@@ -16,7 +16,10 @@ const FALLBACK: AppSettings = {
   themeId: DEFAULT_THEME,
   cacheEnabled: true,
   remoteImages: 'always',
-  messageSurface: 'auto'
+  messageSurface: 'auto',
+  notifications: true,
+  notificationSound: true,
+  badgeCount: true
 }
 
 interface SettingsApi {

@@ -2,7 +2,20 @@ import { useEffect, useMemo, useRef, useState, type DragEvent, type JSX, type Mo
 import type { FolderId, MailAccount, MessageSummary } from '../../../shared/types'
 import { colorFor, displayName, relativeTime } from '../lib/format'
 import { highlight, type SearchScope, type SearchToken, type Suggestion } from '../lib/search'
-import { IconPaperclip, IconSearch, IconStar, IconX } from './Icons'
+import {
+  IconArchive,
+  IconCheck,
+  IconMail,
+  IconMailOpen,
+  IconPaperclip,
+  IconSearch,
+  IconStar,
+  IconTrash,
+  IconX
+} from './Icons'
+
+/** What the bulk bar can do to everything that is ticked. */
+export type BulkAction = 'read' | 'unread' | 'star' | 'archive' | 'trash'
 
 interface Props {
   messages: MessageSummary[]
@@ -34,6 +47,13 @@ interface Props {
   onLoadMore: () => void
   onRowMenu: (event: MouseEvent, message: MessageSummary) => void
   onDragStart: (event: DragEvent, message: MessageSummary) => void
+  /** Ids of the ticked rows. Empty means the list is not in picking mode. */
+  selected: Set<string>
+  /** `toggle` ticks one row; `range` extends from the cursor to this row. */
+  onPick: (index: number, mode: 'toggle' | 'range') => void
+  onPickAll: () => void
+  onClearPicks: () => void
+  onBulk: (action: BulkAction) => void
 }
 
 function Highlighted({ text, terms }: { text: string; terms: string[] }): JSX.Element {
@@ -82,7 +102,12 @@ export function MessageList({
   onOpen,
   onLoadMore,
   onRowMenu,
-  onDragStart
+  onDragStart,
+  selected,
+  onPick,
+  onPickAll,
+  onClearPicks,
+  onBulk
 }: Props): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [focused, setFocused] = useState(false)
@@ -133,8 +158,11 @@ export function MessageList({
     }
   }, [cursor, messages])
 
+  const picking = selected.size > 0
+  const allPicked = picking && selected.size === messages.length
+
   return (
-    <section className="list">
+    <section className={`list${picking ? ' is-picking' : ''}`}>
       <div className="list__head">
         <div className="list__title">
           <h2>{search ? 'Search' : folderName}</h2>
@@ -259,6 +287,46 @@ export function MessageList({
             ))}
           </div>
         )}
+
+        {picking && (
+          <div className="bulkbar">
+            <button className="bulkbar__btn" title="Clear selection (esc)" onClick={onClearPicks}>
+              <IconX size={13} />
+            </button>
+            <span className="bulkbar__count">{selected.size} selected</span>
+            <div className="bulkbar__actions">
+              <button
+                className="bulkbar__btn"
+                title={allPicked ? 'All rows selected' : 'Select all (ctrl A)'}
+                disabled={allPicked}
+                onClick={onPickAll}
+              >
+                <IconCheck size={13} />
+              </button>
+              <span className="bulkbar__sep" />
+              <button className="bulkbar__btn" title="Mark read" onClick={() => onBulk('read')}>
+                <IconMailOpen size={14} />
+              </button>
+              <button className="bulkbar__btn" title="Mark unread" onClick={() => onBulk('unread')}>
+                <IconMail size={14} />
+              </button>
+              <button className="bulkbar__btn" title="Star" onClick={() => onBulk('star')}>
+                <IconStar size={14} />
+              </button>
+              <span className="bulkbar__sep" />
+              <button className="bulkbar__btn" title="Archive (e)" onClick={() => onBulk('archive')}>
+                <IconArchive size={14} />
+              </button>
+              <button
+                className="bulkbar__btn is-danger"
+                title="Delete (#)"
+                onClick={() => onBulk('trash')}
+              >
+                <IconTrash size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="list__scroll" ref={scrollRef}>
@@ -283,21 +351,59 @@ export function MessageList({
               'row',
               message.unread ? 'is-unread' : '',
               index === cursor ? 'is-cursor' : '',
+              selected.has(message.id) ? 'is-picked' : '',
               message.threadId === openThreadId ? 'is-open' : ''
             ]
               .filter(Boolean)
               .join(' ')}
-            onMouseDown={() => onCursor(index)}
-            onClick={() => onOpen(index)}
-            onContextMenu={(e) => {
+            onMouseDown={(e) => {
+              // Shift-click must not move the cursor: the cursor *is* the
+              // anchor a range extends from, and it must not run away as the
+              // range is redrawn. It also stops the browser painting a text
+              // selection across every row the range crosses.
+              if (e.shiftKey) {
+                e.preventDefault()
+                return
+              }
               onCursor(index)
+            }}
+            onClick={(e) => {
+              if (e.shiftKey) {
+                onPick(index, 'range')
+                return
+              }
+              if (e.ctrlKey || e.metaKey) {
+                onPick(index, 'toggle')
+                return
+              }
+              onOpen(index)
+            }}
+            onContextMenu={(e) => {
+              // Right-clicking inside a selection acts on the selection; on a
+              // row outside it, the selection is beside the point.
+              if (!selected.has(message.id)) onCursor(index)
               onRowMenu(e, message)
             }}
             onDragStart={(e) => {
-              onCursor(index)
+              if (!selected.has(message.id)) onCursor(index)
               onDragStart(e, message)
             }}
           >
+            <button
+              className={`row__pick${selected.has(message.id) ? ' is-on' : ''}`}
+              title={selected.has(message.id) ? 'Deselect' : 'Select'}
+              aria-pressed={selected.has(message.id)}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onPick(index, e.shiftKey ? 'range' : 'toggle')
+              }}
+            >
+              {selected.has(message.id) && <IconCheck size={10} />}
+            </button>
             <span className="row__dot" />
             <div className="row__main">
               <div className="row__top">

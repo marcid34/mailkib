@@ -7,7 +7,10 @@ const DEFAULTS: AppSettings = {
   themeId: 'tokyo-night-storm',
   cacheEnabled: true,
   remoteImages: 'always',
-  messageSurface: 'auto'
+  messageSurface: 'auto',
+  notifications: true,
+  notificationSound: true,
+  badgeCount: true
 }
 
 export function getSettings(): AppSettings {

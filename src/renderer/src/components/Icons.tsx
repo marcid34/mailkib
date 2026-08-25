@@ -396,3 +396,23 @@ export const LogoMicrosoft = ({ size = 52 }: { size?: number }): JSX.Element => 
     <rect x="25.5" y="25.5" width="18.5" height="18.5" fill="#FFB900" />
   </svg>
 )
+
+export const IconCheck = (p: IconProps): JSX.Element => (
+  <Svg strokeWidth={3} {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7" />
+  </Svg>
+)
+
+export const IconBell = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+  </Svg>
+)
+
+export const IconMail = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="2" y="4.5" width="20" height="15" rx="2.5" />
+    <path d="m2.8 6.2 8.05 5.9a2 2 0 0 0 2.3 0l8.05-5.9" />
+  </Svg>
+)

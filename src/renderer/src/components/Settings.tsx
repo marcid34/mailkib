@@ -175,6 +175,7 @@ export function Settings({
                 >
                   <span className="theme-card__bar" style={{ background: option.colors.bgDeep }}>
                     <span className="theme-card__dot" style={{ background: option.colors.accent }} />
+                    <span className="theme-card__dot" style={{ background: option.colors.accent2 }} />
                     <span className="theme-card__dot" style={{ background: option.colors.green }} />
                     <span className="theme-card__dot" style={{ background: option.colors.red }} />
                     <span className="theme-card__dot" style={{ background: option.colors.purple }} />
@@ -186,10 +187,93 @@ export function Settings({
                   </span>
                   <span className="theme-card__name" style={{ color: option.colors.fgDim }}>
                     {option.name}
-                    <em style={{ color: option.colors.fgFaint }}>{option.family}</em>
+                    <em style={{ color: option.colors.fgFaint }}>
+                      {option.family}
+                      {option.dark ? '' : ' · light'}
+                    </em>
                   </span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="settings__group">
+            <h4>Notifications</h4>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">New mail</div>
+                <div className="sub">
+                  A desktop notification when mail lands in any connected mailbox, whichever
+                  module you happen to be in. Click one to jump straight to the conversation.
+                </div>
+              </div>
+              <div className="segmented">
+                {(
+                  [
+                    [true, 'On'],
+                    [false, 'Off']
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={label}
+                    className={`segmented__btn${settings.notifications === value ? ' is-on' : ''}`}
+                    onClick={() => update({ notifications: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Sound</div>
+                <div className="sub">Let the notification make your desktop&apos;s noise.</div>
+              </div>
+              <div className="segmented">
+                {(
+                  [
+                    [true, 'On'],
+                    [false, 'Silent']
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={label}
+                    className={`segmented__btn${settings.notificationSound === value ? ' is-on' : ''}`}
+                    disabled={!settings.notifications}
+                    onClick={() => update({ notificationSound: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Launcher badge</div>
+                <div className="sub">
+                  The unread total on the taskbar or dock icon. Not every Linux desktop shows
+                  one — GNOME and KDE do, plain window managers generally do not.
+                </div>
+              </div>
+              <div className="segmented">
+                {(
+                  [
+                    [true, 'On'],
+                    [false, 'Off']
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={label}
+                    className={`segmented__btn${settings.badgeCount === value ? ' is-on' : ''}`}
+                    onClick={() => update({ badgeCount: value })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 import { useState, type DragEvent, type JSX, type MouseEvent } from 'react'
 import type { FolderId, MailAccount, MailFolder, SystemFolderId } from '../../../shared/types'
 import { colorFor, initials } from '../lib/format'
+import { readableOn } from '../lib/themes'
 import {
   IconAllMail,
   IconArchive,
@@ -40,6 +41,8 @@ interface Props {
   activeAccountId: string
   folder: FolderId
   counts: Partial<Record<string, number>>
+  /** Unread in any account's inbox — the account chips each show their own. */
+  unreadFor: (accountId: string) => number
   labels: MailFolder[]
   labelsLoading: boolean
   onSelectAccount: (id: string) => void
@@ -59,6 +62,7 @@ export function Sidebar({
   activeAccountId,
   folder,
   counts,
+  unreadFor,
   labels,
   labelsLoading,
   onSelectAccount,
@@ -98,31 +102,45 @@ export function Sidebar({
     <aside className="sidebar">
       <div className="sidebar__section">
         <div className="sidebar__label">Accounts</div>
-        {accounts.map((account) => (
-          <button
-            key={account.id}
-            className={`account-chip${account.id === activeAccountId ? ' is-active' : ''}`}
-            onClick={() => onSelectAccount(account.id)}
-            title={account.email}
-          >
-            <span
-              className="avatar"
-              style={{
-                width: 24,
-                height: 24,
-                background: account.color || colorFor(account.email)
-              }}
+        {accounts.map((account) => {
+          const tint = account.color || colorFor(account.email)
+          const unread = unreadFor(account.id)
+          return (
+            <button
+              key={account.id}
+              className={`account-chip${account.id === activeAccountId ? ' is-active' : ''}`}
+              onClick={() => onSelectAccount(account.id)}
+              title={
+                unread > 0
+                  ? `${account.email} — ${unread} unread`
+                  : account.email
+              }
             >
-              {initials(account.email)}
-            </span>
-            <span className="account-chip__text">
-              <div className="account-chip__name">{account.email}</div>
-              <div className="account-chip__provider">
-                {account.provider === 'gmail' ? 'Gmail' : 'Microsoft'}
-              </div>
-            </span>
-          </button>
-        ))}
+              <span
+                className="avatar"
+                style={{ width: 24, height: 24, background: tint, color: readableOn(tint) }}
+              >
+                {initials(account.email)}
+              </span>
+              <span className="account-chip__text">
+                <div className="account-chip__name">{account.email}</div>
+                <div className="account-chip__provider">
+                  {account.provider === 'gmail' ? 'Gmail' : 'Microsoft'}
+                </div>
+              </span>
+              {unread > 0 && (
+                <span
+                  // Keyed on the number so a change replays the pop.
+                  key={unread}
+                  className="account-chip__count"
+                  style={{ background: tint, color: readableOn(tint), ['--tint' as string]: tint }}
+                >
+                  {unread > 999 ? '999+' : unread}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
       <nav className={`nav${dragging ? ' is-dragging' : ''}`} onContextMenu={onNavMenu}>
@@ -144,7 +162,15 @@ export function Sidebar({
             >
               <Icon size={15} />
               <span className="nav__text">{name}</span>
-              {count ? <span className="nav__count">{count > 999 ? '999+' : count}</span> : null}
+              {count ? (
+                <span
+                  key={count}
+                  className={`nav__count${id === 'drafts' ? '' : ' nav__count--unread'}`}
+                  title={id === 'drafts' ? `${count} drafts` : `${count} unread`}
+                >
+                  {count > 999 ? '999+' : count}
+                </span>
+              ) : null}
             </button>
           )
         })}
@@ -193,7 +219,13 @@ export function Sidebar({
             <LabelIcon size={14} />
             <span className="nav__text">{label.name}</span>
             {label.unread ? (
-              <span className="nav__count">{label.unread > 999 ? '999+' : label.unread}</span>
+              <span
+                key={label.unread}
+                className="nav__count nav__count--unread"
+                title={`${label.unread} unread`}
+              >
+                {label.unread > 999 ? '999+' : label.unread}
+              </span>
             ) : null}
           </button>
         ))}

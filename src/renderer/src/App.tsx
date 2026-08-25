@@ -4,6 +4,7 @@ import { api, call } from './lib/api'
 import { modalOpen, useKeyScope } from './lib/keymap'
 import { lastModule, MODULES, rememberModule, type ModuleId } from './lib/modules'
 import { useToast } from './lib/toast'
+import { MailWatchProvider, useMailWatch } from './lib/mailwatch'
 import type { Command } from './components/CommandPalette'
 import { AddAccount } from './components/AddAccount'
 import { AuthScreen } from './components/AuthScreen'
@@ -17,12 +18,32 @@ import { TitleBar } from './components/TitleBar'
 
 type Screen = 'boot' | 'auth' | 'addAccount' | 'hub' | 'module'
 
+/**
+ * Mail is watched for the whole session, not just while the mail module is on
+ * screen -- otherwise a notification would only ever arrive while you were
+ * already looking at your inbox.
+ */
 export function App(): JSX.Element {
+  const [accounts, setAccounts] = useState<MailAccount[]>([])
+  return (
+    <MailWatchProvider accounts={accounts}>
+      <Shell accounts={accounts} setAccounts={setAccounts} />
+    </MailWatchProvider>
+  )
+}
+
+function Shell({
+  accounts,
+  setAccounts
+}: {
+  accounts: MailAccount[]
+  setAccounts: (list: MailAccount[]) => void
+}): JSX.Element {
   const { fail, notify } = useToast()
+  const watch = useMailWatch()
   const [screen, setScreen] = useState<Screen>('boot')
   const [hasUsers, setHasUsers] = useState(false)
   const [user, setUser] = useState<AppUser | null>(null)
-  const [accounts, setAccounts] = useState<MailAccount[]>([])
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [module, setModule] = useState<ModuleId>('mail')
   const [panelOpen, setPanelOpen] = useState(false)
@@ -30,12 +51,14 @@ export function App(): JSX.Element {
   const [noteCount, setNoteCount] = useState<number | undefined>(undefined)
   /** bumped to ask the notes module to select a particular note */
   const [wantedNote, setWantedNote] = useState<string | null>(null)
+  /** A conversation a clicked notification asked for. */
+  const [wantedMail, setWantedMail] = useState<{ accountId: string; threadId: string } | null>(null)
 
   const refreshAccounts = useCallback(async (): Promise<MailAccount[]> => {
     const list = await call(api.accounts.list())
     setAccounts(list)
     return list
-  }, [])
+  }, [setAccounts])
 
   const refreshNoteCount = useCallback(async () => {
     try {
@@ -91,6 +114,17 @@ export function App(): JSX.Element {
     void refreshNoteCount()
     setScreen('hub')
   }, [refreshNoteCount])
+
+  // Clicking a notification means "show me this", from wherever you were --
+  // the notes module, the hub, or another account's inbox.
+  useEffect(
+    () =>
+      api.app.onOpenMail((target) => {
+        setWantedMail({ accountId: target.accountId, threadId: target.threadId })
+        goto('mail')
+      }),
+    [goto]
+  )
 
   /* --------------------------- shell shortcuts --------------------------- */
 
@@ -190,7 +224,7 @@ export function App(): JSX.Element {
     setAccounts([])
     setPanelOpen(false)
     setScreen('auth')
-  }, [fail])
+  }, [fail, setAccounts])
 
   const inShell = (screen === 'hub' || screen === 'module') && Boolean(user)
 
@@ -226,6 +260,7 @@ export function App(): JSX.Element {
         <div className="shell">
           <ModuleRail
             active={screen === 'module' ? module : null}
+            unread={watch.totalUnread}
             notesOpen={panelOpen}
             onOpen={goto}
             onHub={goHub}
@@ -234,7 +269,7 @@ export function App(): JSX.Element {
 
           <div className="shell__main">
             {screen === 'hub' && (
-              <Hub user={user} noteCount={noteCount} onOpen={goto} />
+              <Hub user={user} unread={watch.totalUnread} noteCount={noteCount} onOpen={goto} />
             )}
 
             {screen === 'module' && module === 'mail' && (
@@ -243,6 +278,8 @@ export function App(): JSX.Element {
                 info={info}
                 accounts={accounts}
                 moduleCommands={moduleCommands}
+                openTarget={wantedMail}
+                onOpened={() => setWantedMail(null)}
                 onAccountsChanged={() => {
                   void refreshAccounts()
                 }}

@@ -12,6 +12,7 @@ import type {
   ListResult,
   MailAccount,
   MailFolder,
+  MailNotice,
   OAuthRequest,
   Result,
   ThreadView
@@ -51,6 +52,14 @@ export interface MailkibApi {
     setSettings: (patch: Partial<AppSettings>) => Promise<Result<AppSettings>>
     installDesktopEntry: () => Promise<Result<DesktopStatus>>
     openExternal: (url: string) => Promise<Result<boolean>>
+    /** Raise desktop notifications for mail that just arrived. */
+    notifyMail: (notices: MailNotice[]) => Promise<Result<number>>
+    /** Unread total for the launcher icon. */
+    setBadge: (count: number) => Promise<Result<boolean>>
+    /** Fired when a notification is clicked; carries the thread to open. */
+    onOpenMail: (
+      cb: (target: { accountId: string; threadId: string; messageId: string }) => void
+    ) => () => void
     /** Absolute path of a dropped file, or null when the drop carried no real file. */
     pathForFile: (file: File) => string | null
     onWindowState: (cb: (state: { maximized: boolean }) => void) => () => void

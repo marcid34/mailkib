@@ -27,8 +27,40 @@
   --purple: #bb9af7;
 
   --accent: var(--blue);
+  /* The accent's counterweight: the app has two voices, not one hue in ten
+     shades. Badges and "something new" markers lean on this. */
+  --accent-2: var(--orange);
+  --on-accent: #0e1013;
+  --on-accent-2: #0e1013;
+
+  /* Tints. applyTheme() rewrites every one of these from the live palette, so
+     these are only what the very first paint uses before React starts. */
+  --accent-wash: rgba(122, 162, 247, 0.09);
   --accent-soft: rgba(122, 162, 247, 0.14);
-  --accent-line: rgba(122, 162, 247, 0.35);
+  --accent-line: rgba(122, 162, 247, 0.38);
+  --accent-glow: rgba(122, 162, 247, 0.4);
+  --accent-2-wash: rgba(255, 158, 100, 0.09);
+  --accent-2-soft: rgba(255, 158, 100, 0.14);
+  --accent-2-line: rgba(255, 158, 100, 0.38);
+  --accent-2-glow: rgba(255, 158, 100, 0.4);
+  --blue-soft: rgba(122, 162, 247, 0.14);
+  --blue-line: rgba(122, 162, 247, 0.38);
+  --cyan-soft: rgba(125, 207, 255, 0.14);
+  --cyan-line: rgba(125, 207, 255, 0.38);
+  --green-wash: rgba(158, 206, 106, 0.09);
+  --green-soft: rgba(158, 206, 106, 0.14);
+  --green-line: rgba(158, 206, 106, 0.38);
+  --yellow-wash: rgba(224, 175, 104, 0.09);
+  --yellow-soft: rgba(224, 175, 104, 0.14);
+  --yellow-line: rgba(224, 175, 104, 0.38);
+  --orange-soft: rgba(255, 158, 100, 0.14);
+  --orange-line: rgba(255, 158, 100, 0.38);
+  --red-wash: rgba(247, 118, 142, 0.09);
+  --red-soft: rgba(247, 118, 142, 0.14);
+  --red-line: rgba(247, 118, 142, 0.38);
+  --purple-wash: rgba(187, 154, 247, 0.09);
+  --purple-soft: rgba(187, 154, 247, 0.14);
+  --purple-line: rgba(187, 154, 247, 0.38);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.22);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.3);
