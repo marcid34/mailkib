@@ -5,7 +5,7 @@
 # MailKib
 
 **A fast, keyboard-first desktop mail client for Linux.**
-Superhuman-shaped, dressed in Tokyo Night — and sixteen other themes, light ones included.
+Superhuman-shaped, dressed in Tokyo Night — or in a tiling-WM terminal, if you'd rather.
 
 </div>
 
@@ -22,11 +22,11 @@ Two paths. Both end with MailKib in your application launcher.
 ### A. Download the AppImage
 
 Go to the [Releases page](https://github.com/marcid34/mailkib/releases), grab
-`MailKib-0.6.0-x86_64.AppImage`, then:
+`MailKib-0.6.1-x86_64.AppImage`, then:
 
 ```bash
 mkdir -p ~/Applications
-mv ~/Downloads/MailKib-0.6.0-x86_64.AppImage ~/Applications/MailKib.AppImage
+mv ~/Downloads/MailKib-0.6.1-x86_64.AppImage ~/Applications/MailKib.AppImage
 chmod +x ~/Applications/MailKib.AppImage
 ~/Applications/MailKib.AppImage
 ```
@@ -58,10 +58,10 @@ npm install
 # binary download. If node_modules/electron/dist/ is missing, run:
 node node_modules/electron/install.js
 
-npm run dist          # -> release/MailKib-0.6.0-x86_64.AppImage
+npm run dist          # -> release/MailKib-0.6.1-x86_64.AppImage
 ```
 
-Then install it as in **A**, pointing at `release/MailKib-0.6.0-x86_64.AppImage`.
+Then install it as in **A**, pointing at `release/MailKib-0.6.1-x86_64.AppImage`.
 
 `npm run dist:all` also produces `.pacman` and `.deb` packages. Those register their desktop
 entry through the package manager, so the self-registration step is skipped:
@@ -196,6 +196,7 @@ MailKib is built to be driven without the mouse.
 | `ctrl+0` | the hub |
 | `ctrl+1`…`ctrl+5` | jump to a module |
 | `ctrl+\` | toggle the notes panel |
+| `ctrl+shift+l` | switch the look |
 | `/` | search |
 | `ctrl+k` | command palette |
 | `ctrl+r` | refresh |
@@ -252,15 +253,46 @@ New mail is visible from wherever you are standing, not only from the folder it 
 All three are switchable in *Settings → Notifications*. Mail that was already sitting unread
 when you launched the app is counted but never announced.
 
+## Two looks
+
+The same app, two visual languages. There is a **new-look button at the bottom of the module
+rail** — the terminal glyph — and the switch is instant and remembered. `ctrl+shift+L` does it
+from anywhere, and so does *Settings → Look*.
+
+| | Kib | Terminal |
+|---|---|---|
+| Type | proportional (Inter) | one monospace face, everywhere |
+| Corners | rounded | square. Not one radius in the app |
+| Panes | flush, hairline dividers | framed, with a gap between them, like tiled windows |
+| Counts | filled pills | `[12]`, in the accent |
+| Buttons | filled and tinted | `[ bracketed ]` |
+| Rows | a coloured dot for unread | a filled square, and `▸` for the cursor |
+| Selection | rounded ticks | `[x]`, with `-- 4 selected --` above the list |
+| Folder | *Inbox* | `~/inbox` |
+| Search | a magnifier | a `$` prompt |
+| Statusline | a hint strip | segmented cells, active one filled |
+| Hub | cards | cards, over a `neofetch` readout on the distro's own ASCII |
+
+Your theme comes with you across the switch: the look changes shapes and structure, never
+colour. The **Arch** theme (Linux family, `#1793d1`) is there if you want the full effect.
+
+Nothing about the terminal look requires a Nerd Font. It is drawn with box-drawing and
+geometric characters that every monospace face ships.
+
+The whole thing is one stylesheet — `src/renderer/src/styles/terminal.css` — hung off a single
+`data-look` attribute on the root element. No component branches on it except the hub, which
+grows the fetch panel. Deleting the file leaves the original look untouched.
+
 ## Themes
 
-Seventeen themes — fourteen dark, three light — switched instantly from **Settings → Theme**.
+Eighteen themes — fifteen dark, three light — switched instantly from **Settings → Theme**.
 The choice is remembered across restarts and applies to the message viewer as well as the app
 chrome.
 
 | Family | Themes |
 |---|---|
 | Tokyo Night | Storm *(default)*, Night |
+| Linux | Arch |
 | Catppuccin | Mocha, Macchiato, Frappé, Latte *(light)* |
 | Woodland | Everforest, Kanagawa |
 | Ayu | Mirage |

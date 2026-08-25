@@ -4,6 +4,7 @@ import { api, call } from './lib/api'
 import { modalOpen, useKeyScope } from './lib/keymap'
 import { lastModule, MODULES, rememberModule, type ModuleId } from './lib/modules'
 import { useToast } from './lib/toast'
+import { useLook } from './lib/settings-context'
 import { MailWatchProvider, useMailWatch } from './lib/mailwatch'
 import type { Command } from './components/CommandPalette'
 import { AddAccount } from './components/AddAccount'
@@ -41,6 +42,7 @@ function Shell({
 }): JSX.Element {
   const { fail, notify } = useToast()
   const watch = useMailWatch()
+  const { look, toggle: toggleLook } = useLook()
   const [screen, setScreen] = useState<Screen>('boot')
   const [hasUsers, setHasUsers] = useState(false)
   const [user, setUser] = useState<AppUser | null>(null)
@@ -146,6 +148,12 @@ function Shell({
         setPanelOpen((v) => !v)
         return true
       }
+      // The new look, without going to the rail or to settings for it.
+      if (event.shiftKey && event.key.toLowerCase() === 'l') {
+        event.preventDefault()
+        toggleLook()
+        return true
+      }
       if (event.shiftKey) return
 
       // Digits likewise: `code` is the row of number keys wherever they land.
@@ -165,7 +173,7 @@ function Shell({
       }
       return undefined
     },
-    [goto, goHub]
+    [goto, goHub, toggleLook]
   )
 
   useKeyScope('shell', onShellKey, screen === 'hub' || screen === 'module')
@@ -185,15 +193,27 @@ function Shell({
         run: () => goto(m.id)
       })
     })
-    list.push({
-      id: 'toggle-notes-panel',
-      group: 'Kib',
-      label: 'Toggle the notes panel',
-      keys: ['ctrl', '\\'],
-      run: () => setPanelOpen((v) => !v)
-    })
+    list.push(
+      {
+        id: 'toggle-notes-panel',
+        group: 'Kib',
+        label: 'Toggle the notes panel',
+        keys: ['ctrl', '\\'],
+        run: () => setPanelOpen((v) => !v)
+      },
+      {
+        id: 'toggle-look',
+        group: 'Kib',
+        label:
+          look.id === 'terminal'
+            ? 'Switch back to the Kib look'
+            : 'New look — switch to Terminal',
+        keys: ['ctrl', 'shift', 'l'],
+        run: toggleLook
+      }
+    )
     return list
-  }, [goto, goHub])
+  }, [goto, goHub, look.id, toggleLook])
 
   /* -------------------------------- auth --------------------------------- */
 
@@ -269,7 +289,14 @@ function Shell({
 
           <div className="shell__main">
             {screen === 'hub' && (
-              <Hub user={user} unread={watch.totalUnread} noteCount={noteCount} onOpen={goto} />
+              <Hub
+                user={user}
+                info={info}
+                accounts={accounts}
+                unread={watch.totalUnread}
+                noteCount={noteCount}
+                onOpen={goto}
+              />
             )}
 
             {screen === 'module' && module === 'mail' && (

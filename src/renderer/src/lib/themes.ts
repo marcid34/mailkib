@@ -443,6 +443,37 @@ export const THEMES: Theme[] = [
     }
   },
   {
+    id: 'arch',
+    name: 'Arch',
+    family: 'Linux',
+    dark: true,
+    colors: {
+      bg: '#1a1d21',
+      bgDeep: '#15181b',
+      bgSunken: '#101214',
+      bgRaise: '#23272c',
+      bgHover: '#1f2328',
+      bgActive: '#2c3138',
+      border: '#272c32',
+      borderSoft: '#20252a',
+      borderStrong: '#3a424b',
+      fg: '#d5dbe1',
+      fgDim: '#b9c1c9',
+      fgMute: '#8b949e',
+      fgFaint: '#636d78',
+      blue: '#1793d1',
+      cyan: '#4dc4e8',
+      teal: '#33b1a3',
+      green: '#8bc34a',
+      yellow: '#e2b341',
+      orange: '#e08d3c',
+      red: '#e05561',
+      purple: '#a98bd8',
+      accent: '#1793d1',
+      accent2: '#e2b341'
+    }
+  },
+  {
     id: 'nord',
     name: 'Nord',
     family: 'Arctic',

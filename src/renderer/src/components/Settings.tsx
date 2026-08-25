@@ -2,7 +2,8 @@ import { useEffect, useState, type JSX } from 'react'
 import type { AppInfo, AppUser, CacheStats, MailAccount } from '../../../shared/types'
 import { api, call } from '../lib/api'
 import { colorFor, initials } from '../lib/format'
-import { useSettings, useTheme } from '../lib/settings-context'
+import { useLook, useSettings, useTheme } from '../lib/settings-context'
+import { LOOKS } from '../lib/look'
 import { THEMES } from '../lib/themes'
 import { useToast } from '../lib/toast'
 import { IconContacts, IconKey, IconPlus, IconX } from './Icons'
@@ -33,6 +34,7 @@ export function Settings({
   const [newPassword, setNewPassword] = useState('')
   const [desktop, setDesktop] = useState(info?.desktop)
   const { theme, setTheme } = useTheme()
+  const { look, setLook } = useLook()
   const { settings, update } = useSettings()
   const [stats, setStats] = useState<CacheStats | null>(null)
   const primary = accounts[0]
@@ -156,6 +158,35 @@ export function Settings({
             <button className="btn btn--sm" onClick={onAddAccount} style={{ alignSelf: 'flex-start' }}>
               <IconPlus size={13} /> Add account
             </button>
+          </div>
+
+          <div className="settings__group">
+            <h4>Look</h4>
+
+            <div className="settings__row">
+              <div className="grow">
+                <div className="title">Visual language</div>
+                <div className="sub">
+                  The same app in a different skin. <strong>Terminal</strong> squares every
+                  corner, puts one monospace face across the whole app, frames each pane the
+                  way a tiling window manager does, and writes counts, keys and buttons the way
+                  a TUI writes them. Your theme comes with you either way — this changes the
+                  shapes, not the colours.
+                </div>
+              </div>
+              <div className="segmented">
+                {LOOKS.map((option) => (
+                  <button
+                    key={option.id}
+                    className={`segmented__btn${look.id === option.id ? ' is-on' : ''}`}
+                    title={option.tagline}
+                    onClick={() => setLook(option.id)}
+                  >
+                    {option.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="settings__group">

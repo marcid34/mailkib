@@ -186,7 +186,15 @@ export interface AppSettings {
   notificationSound: boolean
   /** Put the unread total on the launcher/taskbar icon. */
   badgeCount: boolean
+  /**
+   * Which visual language the app wears. `kib` is the rounded, proportional
+   * original; `terminal` is the same app drawn like a tiling-WM desktop --
+   * monospace, square, framed, bracketed.
+   */
+  look: LookId
 }
+
+export type LookId = 'kib' | 'terminal'
 
 /** One arriving message, described well enough to notify about it. */
 export interface MailNotice {

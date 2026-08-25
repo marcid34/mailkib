@@ -1,0 +1,1231 @@
+/* ==================================================================== */
+/* The terminal look                                                    */
+/*                                                                      */
+/* The same app, drawn the way the desktop it runs on is drawn: one     */
+/* monospace face, square corners, everything in a visible frame, and   */
+/* colour used as signal rather than decoration.                        */
+/*                                                                      */
+/* Every rule here hangs off :root[data-look='terminal'], so the file   */
+/* is additive: delete it and the original look is untouched. Glyphs    */
+/* are box-drawing and geometric shapes only -- present in every        */
+/* monospace font, so this does not quietly require a Nerd Font.        */
+/* ==================================================================== */
+
+:root[data-look='terminal'] {
+  /* One face for everything. A terminal has no proportional text in it. */
+  --font: var(--mono);
+
+  /* Nothing is rounded. Not one thing. */
+  --radius-sm: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
+
+  /* Frames are the structure here, so they have to be visible rather than
+     hinted at. Every "soft" border is promoted to a real one. */
+  --border-soft: var(--border);
+
+  --titlebar-h: 30px;
+  --rail-w: 40px;
+  --sidebar-w: 218px;
+  --list-w: 392px;
+
+  /* The gap between panes, the way a tiling WM leaves one. */
+  --gap: 4px;
+  /* The colour a focused frame is outlined in. */
+  --frame: var(--border-strong);
+}
+
+:root[data-look='terminal'] body {
+  font-size: 12.5px;
+  line-height: 1.45;
+  /* Columns line up in a terminal. Everywhere, not only in the counts. */
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Square, thin, no thumb padding -- an actual terminal scrollbar. */
+:root[data-look='terminal'] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+:root[data-look='terminal'] ::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  border: 0;
+  background: var(--border-strong);
+}
+:root[data-look='terminal'] ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+:root[data-look='terminal'] ::-webkit-scrollbar-track {
+  background: var(--bg-sunken);
+}
+
+:root[data-look='terminal'] :focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
+  border-radius: 0;
+}
+
+/* -------------------------------------------------------------------- */
+/* the shell: a status bar and a set of tiled frames                     */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .app {
+  background: var(--bg-sunken);
+}
+
+:root[data-look='terminal'] .titlebar {
+  padding: 0 0 0 8px;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+}
+
+:root[data-look='terminal'] .titlebar__brand {
+  gap: 6px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+
+/* A statusline names the thing it is a statusline for. */
+:root[data-look='terminal'] .titlebar__brand::before {
+  content: '[';
+  color: var(--fg-faint);
+}
+:root[data-look='terminal'] .titlebar__brand::after {
+  content: ']';
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .titlebar__brand svg {
+  color: var(--accent);
+}
+
+:root[data-look='terminal'] .wincontrols button {
+  width: 30px;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* The panes sit in a field with a gap between them, like tiled windows. */
+:root[data-look='terminal'] .shell,
+:root[data-look='terminal'] .body {
+  gap: var(--gap);
+}
+
+:root[data-look='terminal'] .shell {
+  padding: var(--gap);
+  background: var(--bg-sunken);
+}
+
+:root[data-look='terminal'] .body {
+  padding: 0;
+  background: transparent;
+}
+
+:root[data-look='terminal'] .shell__main {
+  gap: var(--gap);
+}
+
+/* Each pane is a window with its own frame. */
+:root[data-look='terminal'] .rail,
+:root[data-look='terminal'] .sidebar,
+:root[data-look='terminal'] .list,
+:root[data-look='terminal'] .reader,
+:root[data-look='terminal'] .hint-bar,
+:root[data-look='terminal'] .notespanel,
+:root[data-look='terminal'] .notelist,
+:root[data-look='terminal'] .notepane {
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+:root[data-look='terminal'] .rail {
+  border-right: 1px solid var(--border);
+  background: var(--bg-deep);
+  padding: 6px 0 8px;
+}
+
+:root[data-look='terminal'] .sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--bg-deep);
+}
+
+:root[data-look='terminal'] .list {
+  border-right: 1px solid var(--border);
+}
+
+/* The pane you are working in is outlined, exactly as a WM outlines the
+   focused window. */
+:root[data-look='terminal'] .list:focus-within,
+:root[data-look='terminal'] .sidebar:focus-within,
+:root[data-look='terminal'] .reader:focus-within {
+  border-color: var(--accent);
+}
+
+/* -------------------------------------------------------------------- */
+/* the rail                                                              */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .rail__btn {
+  width: 28px;
+  height: 26px;
+  border-radius: 0;
+  border: 1px solid transparent;
+}
+
+:root[data-look='terminal'] .rail__btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+/* A workspace indicator: the active one is filled, not tinted. */
+:root[data-look='terminal'] .rail__btn.is-active {
+  background: var(--hue, var(--accent));
+  color: var(--bg-deep);
+  border-color: var(--hue, var(--accent));
+}
+
+:root[data-look='terminal'] .rail__btn--hub.is-active {
+  background: var(--accent);
+  color: var(--bg-deep);
+  border-color: var(--accent);
+}
+
+:root[data-look='terminal'] .rail__divider {
+  width: 22px;
+  background: var(--border-strong);
+}
+
+:root[data-look='terminal'] .rail__count {
+  top: -2px;
+  right: -2px;
+  min-width: 15px;
+  height: 14px;
+  border-radius: 0;
+  font-size: 9.5px;
+  font-weight: 700;
+  box-shadow: none;
+  border: 1px solid var(--bg-deep);
+}
+
+/* -------------------------------------------------------------------- */
+/* the sidebar                                                           */
+/* -------------------------------------------------------------------- */
+
+/* A section heading is a rule with a word let into it:  ── accounts ──── */
+:root[data-look='terminal'] .sidebar__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .sidebar__label::before {
+  content: '──';
+  color: var(--border-strong);
+  letter-spacing: -0.1em;
+}
+
+:root[data-look='terminal'] .sidebar__label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+:root[data-look='terminal'] .sidebar__label--inline::after {
+  display: none;
+}
+
+:root[data-look='terminal'] .account-chip {
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  padding: 5px 8px;
+}
+
+:root[data-look='terminal'] .account-chip.is-active {
+  background: var(--bg-hover);
+  border-left-color: var(--accent);
+}
+
+:root[data-look='terminal'] .account-chip__name {
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+:root[data-look='terminal'] .account-chip__provider {
+  font-size: 10px;
+  text-transform: lowercase;
+}
+
+/* An avatar is a square in a world with no round corners. */
+:root[data-look='terminal'] .avatar {
+  border-radius: 0;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Counts are bracketed, the way a status bar writes them. */
+:root[data-look='terminal'] .account-chip__count,
+:root[data-look='terminal'] .nav__count {
+  border-radius: 0;
+  height: 15px;
+  min-width: 0;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+:root[data-look='terminal'] .nav__count {
+  background: transparent;
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .nav__count--unread {
+  background: transparent;
+  color: var(--accent-2);
+  box-shadow: none;
+}
+
+:root[data-look='terminal'] .nav__count::before,
+:root[data-look='terminal'] .account-chip__count::before {
+  content: '[';
+  opacity: 0.55;
+}
+:root[data-look='terminal'] .nav__count::after,
+:root[data-look='terminal'] .account-chip__count::after {
+  content: ']';
+  opacity: 0.55;
+}
+
+:root[data-look='terminal'] .account-chip__count {
+  background: transparent !important;
+  /* The chip keeps the account's colour, but as ink rather than as a fill. */
+  color: var(--tint) !important;
+}
+
+:root[data-look='terminal'] .nav__item {
+  height: 24px;
+  border-radius: 0;
+  gap: 8px;
+  font-size: 12px;
+  padding-left: 18px;
+}
+
+:root[data-look='terminal'] .nav__item.is-active {
+  background: var(--bg-hover);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* The active row is marked, not shaded -- a cursor, not a highlight. */
+:root[data-look='terminal'] .nav__item.is-active::before {
+  content: '▸';
+  position: static;
+  width: auto;
+  background: none;
+  border-radius: 0;
+  margin-left: -12px;
+  margin-right: -1px;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+:root[data-look='terminal'] .nav__hint {
+  font-size: 10.5px;
+}
+
+:root[data-look='terminal'] .sidebar__foot .nav__item {
+  padding-left: 9px;
+}
+
+/* -------------------------------------------------------------------- */
+/* the message list                                                      */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .list__head {
+  padding: 8px 10px;
+  gap: 8px;
+  background: var(--bg-deep);
+}
+
+:root[data-look='terminal'] .list__title h2 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+
+:root[data-look='terminal'] .list__title h2::before {
+  content: '~/';
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .list__title span {
+  font-size: 10.5px;
+}
+
+/* The search box is a prompt. */
+:root[data-look='terminal'] .search {
+  border-radius: 0;
+  height: 26px;
+  gap: 6px;
+  background: var(--bg-sunken);
+}
+
+:root[data-look='terminal'] .search svg {
+  display: none;
+}
+
+:root[data-look='terminal'] .search::before {
+  content: '$';
+  color: var(--green);
+  font-weight: 700;
+  flex: none;
+}
+
+:root[data-look='terminal'] .search:focus-within {
+  border-color: var(--accent);
+}
+
+:root[data-look='terminal'] .search input {
+  font-size: 12px;
+}
+
+:root[data-look='terminal'] .scope__btn,
+:root[data-look='terminal'] .chip,
+:root[data-look='terminal'] .suggestions,
+:root[data-look='terminal'] .suggestions__item {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .scope__btn.is-on {
+  background: var(--accent);
+  color: var(--bg-deep);
+  border-color: var(--accent);
+}
+
+:root[data-look='terminal'] .chip::before {
+  content: '--';
+  color: var(--fg-faint);
+  margin-right: 1px;
+}
+
+/* -------------------------------------------------------------------- */
+/* rows                                                                  */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .row {
+  padding: 5px 10px 6px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+:root[data-look='terminal'] .row.is-cursor {
+  background: var(--bg-hover);
+}
+
+/* The cursor is a caret in the gutter, like a line marker in a pager. */
+:root[data-look='terminal'] .row.is-cursor::before {
+  content: '▸';
+  width: auto;
+  left: 2px;
+  top: 5px;
+  bottom: auto;
+  background: none;
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+}
+
+:root[data-look='terminal'] .row.is-open {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Unread is a filled square; read is nothing at all. */
+:root[data-look='terminal'] .row__dot {
+  width: 5px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:root[data-look='terminal'] .row.is-unread .row__dot {
+  background: var(--accent-2);
+  box-shadow: none;
+}
+
+:root[data-look='terminal'] .row__from {
+  font-size: 11.5px;
+}
+
+:root[data-look='terminal'] .row__subject {
+  font-size: 12px;
+}
+
+:root[data-look='terminal'] .row__snippet {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+:root[data-look='terminal'] .row__time {
+  font-size: 10.5px;
+}
+
+:root[data-look='terminal'] .row__count,
+:root[data-look='terminal'] .row__acct {
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+:root[data-look='terminal'] .row__acct-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] mark.hit {
+  border-radius: 0;
+  background: var(--yellow);
+  color: var(--bg-deep);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------------- */
+/* selection                                                             */
+/* -------------------------------------------------------------------- */
+
+/* A checkbox in a terminal is [ ] and [x]. */
+:root[data-look='terminal'] .row__pick {
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  border-radius: 0;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--accent-2);
+  font-size: 10px;
+}
+
+:root[data-look='terminal'] .row__pick.is-on {
+  background: transparent;
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+:root[data-look='terminal'] .row__pick svg {
+  stroke-width: 3.2;
+}
+
+:root[data-look='terminal'] .row.is-picked {
+  background: var(--accent-2-wash);
+}
+
+:root[data-look='terminal'] .row.is-picked::after {
+  width: 2px;
+}
+
+:root[data-look='terminal'] .bulkbar {
+  border-radius: 0;
+  background: var(--bg-sunken);
+  border: 1px solid var(--accent-2);
+  padding: 4px 6px;
+  margin: 0;
+}
+
+:root[data-look='terminal'] .bulkbar__count {
+  font-size: 11px;
+  text-transform: lowercase;
+}
+
+:root[data-look='terminal'] .bulkbar__count::before {
+  content: '-- ';
+}
+:root[data-look='terminal'] .bulkbar__count::after {
+  content: ' --';
+}
+
+:root[data-look='terminal'] .bulkbar__btn {
+  width: 22px;
+  height: 20px;
+  border-radius: 0;
+}
+
+/* An empty pane says so the way a shell does, on the left, in one line. */
+:root[data-look='terminal'] .list__empty,
+:root[data-look='terminal'] .reader__empty {
+  align-items: flex-start;
+  text-align: left;
+  padding: 14px 10px;
+  gap: 7px;
+  font-size: 12px;
+}
+
+/* The sparkle and the envelope are illustrations; this look does not have any. */
+:root[data-look='terminal'] .list__empty > div:first-child,
+:root[data-look='terminal'] .reader__empty > svg {
+  display: none;
+}
+
+:root[data-look='terminal'] .list__empty > div:not(:first-child)::before,
+:root[data-look='terminal'] .reader__empty > div::before {
+  content: '# ';
+  color: var(--border-strong);
+}
+
+/* -------------------------------------------------------------------- */
+/* the reader                                                            */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .reader__bar {
+  background: var(--bg-deep);
+  padding: 6px 10px;
+}
+
+:root[data-look='terminal'] .reader__subject {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+:root[data-look='terminal'] .msg__head {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .msg {
+  border-radius: 0;
+}
+
+/* Headers read like headers: From:, To:, in a fixed-width column. */
+:root[data-look='terminal'] .msg__from::before {
+  content: 'From: ';
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .msg__to::before {
+  content: 'To: ';
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .msg__paper,
+:root[data-look='terminal'] .compose__paper {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .attachment,
+:root[data-look='terminal'] .images-bar {
+  border-radius: 0;
+}
+
+/* -------------------------------------------------------------------- */
+/* controls                                                              */
+/* -------------------------------------------------------------------- */
+
+/* A button in a TUI is [ label ]. */
+:root[data-look='terminal'] .btn {
+  border-radius: 0;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  border-color: var(--border-strong);
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+:root[data-look='terminal'] .btn::before {
+  content: '[';
+  color: var(--fg-faint);
+  margin-right: 2px;
+}
+:root[data-look='terminal'] .btn::after {
+  content: ']';
+  color: var(--fg-faint);
+  margin-left: 2px;
+}
+
+:root[data-look='terminal'] .btn:active:not(:disabled) {
+  transform: none;
+}
+
+:root[data-look='terminal'] .btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+:root[data-look='terminal'] .btn--primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+:root[data-look='terminal'] .btn--primary::before,
+:root[data-look='terminal'] .btn--primary::after {
+  color: var(--on-accent);
+  opacity: 0.55;
+}
+
+:root[data-look='terminal'] .btn--primary:hover:not(:disabled) {
+  filter: brightness(1.15);
+  color: var(--on-accent);
+}
+
+:root[data-look='terminal'] .btn--ghost {
+  border-color: transparent;
+}
+
+:root[data-look='terminal'] .btn--ghost:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: transparent;
+}
+
+:root[data-look='terminal'] .btn--danger:hover:not(:disabled) {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+:root[data-look='terminal'] .btn--sm {
+  height: 24px;
+  font-size: 11.5px;
+}
+
+:root[data-look='terminal'] .iconbtn,
+:root[data-look='terminal'] .sidebar__add,
+:root[data-look='terminal'] .search__clear {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .field input,
+:root[data-look='terminal'] .field textarea {
+  border-radius: 0;
+  height: 30px;
+  font-size: 12px;
+}
+
+:root[data-look='terminal'] .field label {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .field label::before {
+  content: '# ';
+  color: var(--border-strong);
+}
+
+/* A key is written <like this> in a man page, not drawn as a keycap. */
+:root[data-look='terminal'] .kbd {
+  border-radius: 0;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 1px;
+  background: transparent;
+  height: 17px;
+  min-width: 17px;
+  font-size: 10px;
+  color: var(--accent);
+}
+
+:root[data-look='terminal'] .segmented {
+  border-radius: 0;
+  padding: 0;
+  gap: 0;
+  border-color: var(--border-strong);
+}
+
+:root[data-look='terminal'] .segmented__btn {
+  border-radius: 0;
+  height: 22px;
+  font-size: 11.5px;
+  border-right: 1px solid var(--border);
+}
+
+:root[data-look='terminal'] .segmented__btn:last-child {
+  border-right: none;
+}
+
+:root[data-look='terminal'] .segmented__btn.is-on {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+:root[data-look='terminal'] .spinner {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .error-line,
+:root[data-look='terminal'] .setup__warn {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .error-line::before {
+  content: 'error: ';
+  font-weight: 700;
+}
+
+/* -------------------------------------------------------------------- */
+/* overlays: dialogs as framed windows, the palette as a launcher        */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .overlay {
+  backdrop-filter: none;
+  background: var(--bg-overlay);
+}
+
+:root[data-look='terminal'] .panel {
+  border-radius: 0;
+  border: 1px solid var(--accent);
+  box-shadow: none;
+  animation: none;
+}
+
+:root[data-look='terminal'] .panel__head {
+  padding: 7px 10px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+:root[data-look='terminal'] .panel__head h3 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--accent);
+}
+
+:root[data-look='terminal'] .panel__head h3::before {
+  content: '── ';
+  color: var(--border-strong);
+}
+
+:root[data-look='terminal'] .panel__body {
+  padding: 12px;
+  gap: 12px;
+}
+
+:root[data-look='terminal'] .panel__foot {
+  padding: 8px 10px;
+}
+
+:root[data-look='terminal'] .settings__group h4 {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  color: var(--accent-2);
+}
+
+:root[data-look='terminal'] .settings__group h4::before {
+  content: '[';
+  color: var(--fg-faint);
+}
+:root[data-look='terminal'] .settings__group h4::after {
+  content: ']';
+  color: var(--fg-faint);
+}
+
+:root[data-look='terminal'] .settings__row,
+:root[data-look='terminal'] .provider-card,
+:root[data-look='terminal'] .theme-card,
+:root[data-look='terminal'] .contact,
+:root[data-look='terminal'] .autocomplete,
+:root[data-look='terminal'] .autocomplete__item,
+:root[data-look='terminal'] .attachment,
+:root[data-look='terminal'] .preview,
+:root[data-look='terminal'] .prompt {
+  border-radius: 0;
+}
+
+/* The command palette is the app's dmenu. */
+:root[data-look='terminal'] .palette {
+  border-radius: 0;
+  border: 1px solid var(--accent);
+}
+
+:root[data-look='terminal'] .palette__input {
+  border-radius: 0;
+  font-size: 13px;
+  padding-left: 30px;
+}
+
+:root[data-look='terminal'] .palette__input::before {
+  content: '>';
+}
+
+:root[data-look='terminal'] .palette__item {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .palette__item.is-cursor {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+:root[data-look='terminal'] .palette__item.is-cursor .palette__group,
+:root[data-look='terminal'] .palette__item.is-cursor .kbd {
+  color: var(--on-accent);
+  border-color: color-mix(in srgb, var(--on-accent) 40%, transparent);
+}
+
+:root[data-look='terminal'] .menu {
+  border-radius: 0;
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+
+:root[data-look='terminal'] .menu__item {
+  border-radius: 0;
+  height: 24px;
+  font-size: 12px;
+}
+
+:root[data-look='terminal'] .menu__item.is-cursor:not(.is-disabled) {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+:root[data-look='terminal'] .menu__item.is-cursor .menu__hint {
+  color: var(--on-accent);
+  opacity: 0.7;
+}
+
+:root[data-look='terminal'] .compose {
+  border-radius: 0;
+}
+
+/* -------------------------------------------------------------------- */
+/* toasts: log lines, not cards                                          */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .toast {
+  border-radius: 0;
+  border-left-width: 2px;
+  font-size: 11.5px;
+  animation: none;
+  box-shadow: none;
+}
+
+:root[data-look='terminal'] .toast::before {
+  content: '::';
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+:root[data-look='terminal'] .toast--error::before {
+  content: '!!';
+  color: var(--red);
+}
+
+:root[data-look='terminal'] .toast--ok::before {
+  content: '::';
+  color: var(--green);
+}
+
+/* -------------------------------------------------------------------- */
+/* the hint bar: a statusline                                            */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .hint-bar {
+  height: 22px;
+  gap: 0;
+  padding: 0;
+  font-size: 10.5px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+}
+
+:root[data-look='terminal'] .hint-bar > * {
+  padding: 0 9px;
+}
+
+:root[data-look='terminal'] .hint-bar .pair {
+  gap: 4px;
+  height: 100%;
+  align-items: center;
+  border-right: 1px solid var(--border);
+}
+
+:root[data-look='terminal'] .hint-bar .pair:first-child {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+:root[data-look='terminal'] .hint-bar .pair:first-child .kbd {
+  color: var(--on-accent);
+  border-color: color-mix(in srgb, var(--on-accent) 45%, transparent);
+}
+
+/* The mailbox on the right end, where a statusline puts the thing you are in. */
+:root[data-look='terminal'] .hint-bar > span:last-child {
+  background: var(--bg-hover);
+  color: var(--accent-2);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--border);
+}
+
+/* -------------------------------------------------------------------- */
+/* the hub: a login greeter with a fetch panel                           */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .hub {
+  place-items: start center;
+  padding: 26px 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+/* The fetch panel below is the identity mark in this look; a second, rounded
+   one above it is just competing with the prompt. */
+:root[data-look='terminal'] .hub__head > svg {
+  display: none;
+}
+
+:root[data-look='terminal'] .hub__head {
+  margin-bottom: 20px;
+}
+
+:root[data-look='terminal'] .hub__title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+:root[data-look='terminal'] .hub__title::before {
+  content: '$ ';
+  color: var(--green);
+}
+
+:root[data-look='terminal'] .hub__sub {
+  font-size: 12px;
+}
+
+:root[data-look='terminal'] .hub__sub::before {
+  content: '# ';
+  color: var(--border-strong);
+}
+
+:root[data-look='terminal'] .hubcard {
+  border-radius: 0;
+  min-height: 0;
+  padding: 10px 12px 11px;
+  background: var(--bg-deep);
+  border-color: var(--border);
+  gap: 2px;
+}
+
+:root[data-look='terminal'] .hubcard:hover:not(:disabled) {
+  transform: none;
+  border-color: var(--hue, var(--accent));
+  background: var(--bg-hover);
+}
+
+:root[data-look='terminal'] .hubcard__icon {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 7px;
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid var(--hue, var(--accent));
+}
+
+:root[data-look='terminal'] .hubcard__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+:root[data-look='terminal'] .hubcard__key {
+  top: 9px;
+  right: 10px;
+  font-size: 10px;
+}
+
+:root[data-look='terminal'] .hubcard__key::before {
+  content: '[';
+}
+:root[data-look='terminal'] .hubcard__key::after {
+  content: ']';
+}
+
+:root[data-look='terminal'] .hubcard__name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+:root[data-look='terminal'] .hubcard__tagline {
+  font-size: 11px;
+}
+
+:root[data-look='terminal'] .hubcard__meta {
+  padding-top: 7px;
+  font-size: 10px;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+/* -------------------------------------------------------------------- */
+/* fetch: the neofetch-style block the hub grows in this look             */
+/* -------------------------------------------------------------------- */
+
+.fetch {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+/* A monospace cell is about twice as tall as it is wide, so the art only holds
+   its proportions at a line-height near 1.2 -- tighter than that and the logo
+   comes out squat. */
+.fetch__art {
+  margin: 0;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1.2;
+  white-space: pre;
+  color: var(--accent);
+}
+
+.fetch__info {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.62;
+}
+
+.fetch__who {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.fetch__rule {
+  color: var(--border-strong);
+  letter-spacing: -0.1em;
+}
+
+.fetch__row {
+  display: flex;
+  gap: 8px;
+}
+
+.fetch__key {
+  flex: none;
+  width: 8ch;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.fetch__value {
+  color: var(--fg-dim);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fetch__swatches {
+  display: flex;
+  gap: 3px;
+  margin-top: 9px;
+}
+
+.fetch__swatch {
+  width: 15px;
+  height: 9px;
+}
+
+/* -------------------------------------------------------------------- */
+/* notes                                                                 */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .noterow,
+:root[data-look='terminal'] .notelist__search,
+:root[data-look='terminal'] .notespanel__picker,
+:root[data-look='terminal'] .notepane__toolbar button,
+:root[data-look='terminal'] .compose__toolbar button {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .noterow.is-active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* The notes search is the same prompt as the mail one. */
+:root[data-look='terminal'] .notelist__search > svg {
+  display: none;
+}
+
+:root[data-look='terminal'] .notelist__search::before {
+  content: '$';
+  color: var(--green);
+  font-weight: 700;
+  flex: none;
+}
+
+:root[data-look='terminal'] .notepane__empty {
+  align-items: flex-start;
+  text-align: left;
+  padding: 14px 12px;
+}
+
+:root[data-look='terminal'] .notepane__empty > svg {
+  display: none;
+}
+
+:root[data-look='terminal'] .notepane__empty > div::before {
+  content: '# ';
+  color: var(--border-strong);
+}
+
+:root[data-look='terminal'] .notepane__title {
+  font-family: var(--mono);
+}
+
+/* -------------------------------------------------------------------- */
+/* auth and onboarding                                                   */
+/* -------------------------------------------------------------------- */
+
+:root[data-look='terminal'] .auth,
+:root[data-look='terminal'] .onboard,
+:root[data-look='terminal'] .setup {
+  border-radius: 0;
+}
+
+:root[data-look='terminal'] .auth__logo {
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-look='terminal'] .fetch {
+    animation: none;
+  }
+}

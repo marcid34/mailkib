@@ -55,6 +55,7 @@ const GROUPS: { title: string; rows: [string, string[]][] }[] = [
       ['Mail / Notes / …', ['ctrl', '1', '–', '5']],
       ['Notes panel', ['ctrl', '\\']],
       ['Notes panel (any layout)', ['ctrl', 'shift', 'n']],
+      ['Switch the look', ['ctrl', 'shift', 'l']],
       ['Commands', ['ctrl', 'k']]
     ]
   },

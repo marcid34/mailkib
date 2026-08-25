@@ -416,3 +416,11 @@ export const IconMail = (p: IconProps): JSX.Element => (
     <path d="m2.8 6.2 8.05 5.9a2 2 0 0 0 2.3 0l8.05-5.9" />
   </Svg>
 )
+
+export const IconTerminal = (p: IconProps): JSX.Element => (
+  <Svg {...p}>
+    <rect x="2" y="4" width="20" height="16" rx="1.5" />
+    <path d="m6.5 9.5 3 2.5-3 2.5" />
+    <path d="M12.5 15h5" />
+  </Svg>
+)

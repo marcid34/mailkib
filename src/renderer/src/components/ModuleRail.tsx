@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { HUB_ICON, MODULES, type ModuleId } from '../lib/modules'
-import { IconPanel } from './Icons'
+import { useLook } from '../lib/settings-context'
+import { IconPanel, IconTerminal } from './Icons'
 
 /**
  * The everyday way between modules. The hub is still a real place you can go
@@ -22,6 +23,8 @@ export function ModuleRail({
   onHub: () => void
   onToggleNotes: () => void
 }): JSX.Element {
+  const { look, toggle } = useLook()
+
   return (
     <nav className="rail" aria-label="Modules">
       <button
@@ -71,6 +74,21 @@ export function ModuleRail({
         title="Notes panel (ctrl+\\)"
       >
         <IconPanel size={17} />
+      </button>
+
+      {/* The new look, one click away from anywhere in the app. */}
+      <button
+        className={`rail__btn${look.id === 'terminal' ? ' is-active' : ''}`}
+        style={{ ['--hue' as string]: 'var(--accent-2)' }}
+        onClick={toggle}
+        title={
+          look.id === 'terminal'
+            ? 'New look: Terminal — click for the original (ctrl+shift+L)'
+            : 'New look: Terminal — click to try it (ctrl+shift+L)'
+        }
+        aria-pressed={look.id === 'terminal'}
+      >
+        <IconTerminal size={17} />
       </button>
     </nav>
   )

@@ -1,7 +1,9 @@
 import { useEffect, useState, type JSX } from 'react'
-import type { AppUser } from '../../../shared/types'
+import type { AppInfo, AppUser, MailAccount } from '../../../shared/types'
 import { MODULES, type ModuleId } from '../lib/modules'
 import { useKeyScope } from '../lib/keymap'
+import { useLook } from '../lib/settings-context'
+import { Fetch } from './Fetch'
 import { Mark } from './Icons'
 
 /** Morning, afternoon, evening — cheap, and it makes the front door feel lived in. */
@@ -15,17 +17,22 @@ function greeting(): string {
 
 export function Hub({
   user,
+  info,
+  accounts,
   unread,
   noteCount,
   onOpen
 }: {
   user: AppUser
+  info: AppInfo | null
+  accounts: MailAccount[]
   /** unread mail across every account, when it is known */
   unread?: number
   noteCount?: number
   onOpen: (id: ModuleId) => void
 }): JSX.Element {
   const [shown, setShown] = useState(false)
+  const { look } = useLook()
 
   // One settle on entry rather than a stagger per tile: the hub is a door, not
   // a title sequence.
@@ -69,6 +76,16 @@ export function Hub({
             <p className="hub__sub">Pick somewhere to be.</p>
           </div>
         </header>
+
+        {look.id === 'terminal' && (
+          <Fetch
+            username={user.username}
+            info={info}
+            accounts={accounts}
+            unread={unread}
+            noteCount={noteCount}
+          />
+        )}
 
         <div className="hub__grid">
           {MODULES.map((module, index) => {

@@ -10,7 +10,8 @@ const DEFAULTS: AppSettings = {
   messageSurface: 'auto',
   notifications: true,
   notificationSound: true,
-  badgeCount: true
+  badgeCount: true,
+  look: 'kib'
 }
 
 export function getSettings(): AppSettings {
